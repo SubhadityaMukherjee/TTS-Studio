@@ -35,14 +35,6 @@ class TTSProcessor:
                     if audio is not None:
                         yield sent, audio
 
-    # def stream_generator(self, text, voice="af_heart", speed=1.0, chunk_size=500):
-    #     for i in range(0, len(text), chunk_size):
-    #         chunk_text = text[i : i + chunk_size]
-    #         generator = self.generate_audio(chunk_text, voice, speed)
-    #         for gs, ps, audio in generator:
-    #             if audio is not None:
-    #                 yield chunk_text, audio
-
     def save(self, text, output_path, voice="af_heart", speed=1.0, chunk_size=None):
         """
         Save text to WAV file.

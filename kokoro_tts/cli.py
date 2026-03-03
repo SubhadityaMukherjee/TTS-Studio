@@ -1,23 +1,49 @@
-from logging import disable
 import click
 import os
 import sys
 from pathlib import Path
-import threading
 import re
 from tqdm import tqdm
+import soundfile as sf
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing
+
 from .processor import TTSProcessor
 from .parsers import EpubParser, PdfParser
-from .utils import spinning_wheel, dynamic_print
-import sounddevice as sd
-import numpy as np
-import soundfile as sf
 
 
 @click.group()
 def main():
     """Kokoro TTS: A high-quality text-to-speech CLI."""
     pass
+
+
+def process_chapter(chapter, voice, speed, lang, split_output):
+    """Run in a separate process for TTS conversion."""
+
+    # --- Safe filename formatting ---
+    safe_title = chapter.get("title", f"Chapter_{chapter['order']:02d}")
+    safe_title = re.sub(
+        r"^(?:\d+_)?(?:xhtml_\d+_)?", "", safe_title, flags=re.IGNORECASE
+    )
+    safe_title = re.sub(r"[^\w\d_-]+", "_", safe_title)
+    safe_title = re.sub(r"_+", "_", safe_title).strip("_")
+
+    out_file = os.path.join(split_output, f"{chapter['order']:02d}_{safe_title}.wav")
+
+    # --- Skip if file already exists ---
+    if os.path.exists(out_file):
+        return out_file, "skipped"
+
+    processor = TTSProcessor(lang_code=lang)
+
+    # Process with progress-aware streaming
+    generator = processor.stream_generator(chapter["content"], voice=voice, speed=speed)
+    with sf.SoundFile(out_file, "w", samplerate=24000, channels=1) as f:
+        for _, audio in generator:
+            f.write(audio)
+
+    return out_file, "completed"
 
 
 @main.command()
@@ -31,13 +57,14 @@ def main():
     "--split-output", type=click.Path(), help="Directory to save chapter files"
 )
 def convert(input_file, output_file, voice, speed, lang, stream, split_output):
-    """Convert text, EPUB, or PDF to audio with real-time saving."""
+    """Convert text, EPUB, or PDF to audio, with progress bars and file skipping."""
 
+    # --- Language mapping ---
     lang_map = {"en": "a", "en-us": "a", "en-gb": "b"}
     final_lang = lang_map.get(lang.lower(), lang)
     processor = TTSProcessor(lang_code=final_lang)
 
-    # --- Input Handling ---
+    # --- Input handling ---
     if input_file == "-":
         content = sys.stdin.read()
         chapters = [{"title": "STDIN", "content": content, "order": 1}]
@@ -47,57 +74,55 @@ def convert(input_file, output_file, voice, speed, lang, stream, split_output):
         chapters = PdfParser(input_file).get_chapters()
     else:
         with open(input_file, "r", encoding="utf-8") as f:
-            chapters = [{"title": "File", "content": f.read(), "order": 1}]
+            chapters = [
+                {"title": Path(input_file).stem, "content": f.read(), "order": 1}
+            ]
 
-    for chapter in chapters:
-        if not chapter["content"].strip():
-            continue
+    if not chapters:
+        click.secho("❌ No chapters found to process.", fg="red")
+        sys.exit(1)
 
-        # --- Filename Cleaning ---
-        safe_title = chapter["title"] or f"Chapter_{chapter['order']:02d}"
-        safe_title = re.sub(
-            r"^(?:\d+_)?(?:xhtml_\d+_)?", "", safe_title, flags=re.IGNORECASE
-        )
-        safe_title = re.sub(r"[^\w\d_-]", "_", safe_title)
-        safe_title = re.sub(r"_+", "_", safe_title).strip("_")
+    os.makedirs(split_output or ".", exist_ok=True)
+    max_workers = min(4, multiprocessing.cpu_count() // 2)
 
-        if split_output:
-            os.makedirs(split_output, exist_ok=True)
-            out_file = os.path.join(
-                split_output, f"{chapter['order']:02d}_{safe_title}.wav"
-            )
-        else:
-            out_file = output_file or "output.wav"
+    click.secho(
+        f"🔄 Starting conversion of {len(chapters)} chapters "
+        f"(max {max_workers} workers)...\n",
+        fg="cyan",
+    )
 
-        # --- Processing & Saving on the fly ---
-        if not Path(out_file).is_file() or stream:
-            click.secho(f"\n# Processing: {chapter['title']}", fg="cyan", bold=True)
+    results = []
+    skipped_count = 0
 
-            chunk_size = 500
-            total_chunks = (len(chapter["content"]) + chunk_size - 1) // chunk_size
+    # --- Use a progress bar for better UX ---
+    with tqdm(total=len(chapters), desc="Processing chapters", ncols=80) as pbar:
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(
+                    process_chapter, ch, voice, speed, final_lang, split_output
+                ): ch
+                for ch in chapters
+                if ch["content"].strip()
+            }
 
-            chunks = processor.stream_generator(
-                chapter["content"], voice=voice, speed=speed
-            )
+            for future in as_completed(futures):
+                chapter = futures[future]
+                try:
+                    out_path, status = future.result()
+                    if status == "skipped":
+                        skipped_count += 1
+                        click.secho(f"⏩ Skipped (exists): {out_path}", fg="yellow")
+                    else:
+                        click.secho(f"✔ Completed: {out_path}", fg="green")
+                    results.append(out_path)
+                except Exception as e:
+                    click.secho(
+                        f"❌ Error processing chapter {chapter['title']}: {e}", fg="red"
+                    )
+                finally:
+                    pbar.update(1)
 
-            # Open file for writing immediately
-            with sf.SoundFile(out_file, mode="w", samplerate=24000, channels=1) as f:
-                for _, audio in tqdm(
-                    chunks,
-                    desc=f"Chapter {chapter['order']:02d}",
-                    unit="chunk",
-                    total=total_chunks,
-                ):
-                    # Write to disk as we go
-                    f.write(audio)
-
-                    if stream:
-                        sd.play(audio, 24000)
-                        sd.wait()
-
-            click.secho(f"✔ Completed: {out_file}", fg="green")
-        else:
-            click.secho(f"Skipping (exists): {out_file}", fg="yellow")
+    click.secho(f"\n🏁 All chapters processed! ({skipped_count} skipped)", fg="cyan")
 
 
 if __name__ == "__main__":
