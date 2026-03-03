@@ -77,7 +77,7 @@ def convert(input_file, output_file, voice, speed, lang, stream, split_output):
             total_chunks = (len(chapter["content"]) + chunk_size - 1) // chunk_size
 
             chunks = processor.stream_generator(
-                chapter["content"], voice=voice, speed=speed, chunk_size=chunk_size
+                chapter["content"], voice=voice, speed=speed
             )
 
             # Open file for writing immediately

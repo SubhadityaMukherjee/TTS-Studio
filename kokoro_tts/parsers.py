@@ -1,25 +1,54 @@
 import os
 import re
 import fitz  # PyMuPDF
+import pymupdf.layout
 import pymupdf4llm
+
 from ebooklib import epub, ITEM_DOCUMENT
 from bs4 import BeautifulSoup
+from nltk import sent_tokenize
 
 
 class EpubParser:
     @staticmethod
     def extract_chapters(epub_file):
+        """
+        Extract chapters from an EPUB file with improved sentence and paragraph parsing.
+        """
         book = epub.read_epub(epub_file)
         chapters = []
-        for item in book.get_items_of_type(ITEM_DOCUMENT):
+
+        for idx, item in enumerate(book.get_items_of_type(ITEM_DOCUMENT)):
             soup = BeautifulSoup(item.get_body_content(), "html.parser")
-            text = soup.get_text().strip()
-            if text:
+
+            # Extract title from <h1> or <title>, fallback to item filename
+            title_tag = soup.find(["h1", "title"])
+            title = (
+                title_tag.get_text(strip=True)
+                if title_tag
+                else os.path.basename(item.get_name())
+            )
+
+            # Clean up text content
+            paragraphs = [
+                p.get_text(" ", strip=True)
+                for p in soup.find_all("p")
+                if p.get_text(strip=True)
+            ]
+            full_text = "\n\n".join(paragraphs)
+
+            # Sentence-level parsing for better TTS or downstream use
+            sentences = []
+            for para in paragraphs:
+                sentences.extend(sent_tokenize(para))
+
+            if full_text:
                 chapters.append(
                     {
-                        "title": item.get_name(),
-                        "content": text,
-                        "order": len(chapters) + 1,
+                        "title": title,
+                        "content": full_text,
+                        "sentences": sentences,
+                        "order": idx + 1,
                     }
                 )
         return chapters
@@ -30,20 +59,48 @@ class PdfParser:
         self.pdf_path = pdf_path
 
     def get_chapters(self):
-        # Using the markdown approach as it's more reliable for TTS flow
-        md_text = pymupdf4llm.to_markdown(self.pdf_path)
-        # Simple split by headers
-        sections = re.split(r"#+\s+", md_text)
+        """
+        Extract layout-aware text using pymupdf4llm + layout activation.
+        """
+        # Open document - layout analysis is now active
+        doc = fitz.open(self.pdf_path)
+
+        # Use layout-aware markdown extraction (handles columns, reading order)
+        md_text = pymupdf4llm.to_markdown(
+            doc,
+            write_images=False,  # Skip images
+            header=False,  # Skip headers
+            footer=False,  # Skip footers
+        )
+        doc.close()
+
+        # Split by markdown headers
+        sections = re.split(r"(?m)^#{1,6}\s+", md_text)
+
         chapters = []
-        for i, content in enumerate(sections):
-            if not content.strip():
+        for i, section in enumerate(sections):
+            section = section.strip()
+            if len(section) < 50:  # Skip tiny fragments
                 continue
-            lines = content.split("\n")
+
+            lines = section.split("\n", 1)
+            title = lines[0].strip("# ").strip() if lines else f"Section {i+1}"
+            content = lines[1].strip() if len(lines) > 1 else section
+
+            # Paragraphs and sentences
+            paragraphs = [p.strip() for p in re.split(r"\n{2,}", content) if p.strip()]
+            sentences = []
+            for para in paragraphs:
+                sentences.extend(sent_tokenize(para))
+
             chapters.append(
                 {
-                    "title": lines[0][:50] if lines else f"Section {i}",
-                    "content": content.strip(),
-                    "order": i,
+                    "title": title[:100],
+                    "content": content,
+                    "paragraphs": paragraphs,
+                    "sentences": sentences,
+                    "order": i + 1,
                 }
             )
+
         return chapters

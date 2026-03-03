@@ -3,9 +3,13 @@ import logging
 import torch
 import sounddevice as sd
 import soundfile as sf
+import re
+import nltk
+
 
 from kokoro import KPipeline
 
+nltk.download("punkt", quiet=True)
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 logging.getLogger("transformers").setLevel(logging.ERROR)
@@ -19,17 +23,25 @@ class TTSProcessor:
         """Full audio generator (yields gs, ps, audio)"""
         return self.pipeline(text, voice=voice, speed=speed)
 
-    def stream_generator(self, text, voice="af_heart", speed=1.0, chunk_size=500):
+    def stream_generator(self, text, voice="af_heart", speed=1.0):
         """
         Yields (text_chunk, audio_tensor) for CLI streaming.
         Splits text into chunks internally to allow progress tracking.
         """
-        for i in range(0, len(text), chunk_size):
-            chunk_text = text[i : i + chunk_size]
-            generator = self.generate_audio(chunk_text, voice, speed)
-            for gs, ps, audio in generator:
-                if audio is not None:
-                    yield chunk_text, audio
+        sentences = nltk.sent_tokenize(text)
+        for sent in sentences:
+            if sent.strip():
+                for gs, ps, audio in self.generate_audio(sent.strip(), voice, speed):
+                    if audio is not None:
+                        yield sent, audio
+
+    # def stream_generator(self, text, voice="af_heart", speed=1.0, chunk_size=500):
+    #     for i in range(0, len(text), chunk_size):
+    #         chunk_text = text[i : i + chunk_size]
+    #         generator = self.generate_audio(chunk_text, voice, speed)
+    #         for gs, ps, audio in generator:
+    #             if audio is not None:
+    #                 yield chunk_text, audio
 
     def save(self, text, output_path, voice="af_heart", speed=1.0, chunk_size=None):
         """
