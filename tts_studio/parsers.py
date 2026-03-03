@@ -1,13 +1,12 @@
 import os
 import re
+
 import fitz  # PyMuPDF
-import pymupdf.layout
 import pymupdf4llm
-
-from ebooklib import epub, ITEM_DOCUMENT
+import pymupdf.layout
 from bs4 import BeautifulSoup
+from ebooklib import ITEM_DOCUMENT, epub
 from nltk import sent_tokenize
-
 
 
 class EpubParser:

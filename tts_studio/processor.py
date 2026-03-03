@@ -1,14 +1,13 @@
-import warnings
 import logging
-import torch
+import os
+import re
+import warnings
+
+import nltk
 import sounddevice as sd
 import soundfile as sf
-import re
-import nltk
-
-
+import torch
 from kokoro import KPipeline
-import os
 
 nltk.download("punkt", quiet=True)
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -29,8 +28,9 @@ class TTSProcessor:
             self.device = "cpu"
             print("MPS unavailable, falling back to CPU")
 
-        self.pipeline = KPipeline(lang_code=lang_code, repo_id="hexgrad/Kokoro-82M", device=self.device)
-        
+        self.pipeline = KPipeline(
+            lang_code=lang_code, repo_id="hexgrad/Kokoro-82M", device=self.device
+        )
 
     def generate_audio(self, text, voice="af_heart", speed=1.0):
         """Full audio generator (yields gs, ps, audio)"""

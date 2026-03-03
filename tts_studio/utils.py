@@ -1,7 +1,7 @@
-import sys
-import time
 import itertools
+import sys
 import threading
+import time
 
 
 def spinning_wheel(message="Processing...", progress=None, stop_event=None):

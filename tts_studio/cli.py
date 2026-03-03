@@ -1,15 +1,16 @@
-import click
-import os
-import sys
-from pathlib import Path
-import re
-from tqdm import tqdm
-import soundfile as sf
-from concurrent.futures import ProcessPoolExecutor, as_completed
 import multiprocessing
+import os
+import re
+import sys
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from pathlib import Path
 
-from .processor import TTSProcessor
+import click
+import soundfile as sf
+from tqdm import tqdm
+
 from .parsers import EpubParser, PdfParser
+from .processor import TTSProcessor
 
 
 @click.group()
