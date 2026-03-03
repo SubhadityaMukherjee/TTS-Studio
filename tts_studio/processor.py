@@ -8,6 +8,7 @@ import nltk
 
 
 from kokoro import KPipeline
+import os
 
 nltk.download("punkt", quiet=True)
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -17,7 +18,19 @@ logging.getLogger("transformers").setLevel(logging.ERROR)
 
 class TTSProcessor:
     def __init__(self, lang_code="a"):
-        self.pipeline = KPipeline(lang_code=lang_code, repo_id="hexgrad/Kokoro-82M")
+        if torch.backends.mps.is_available():
+            self.device = "mps"
+            print("Using MPS (Metal) acceleration")
+            os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
+        elif torch.cuda.is_available():
+            self.device = "cuda"
+            print("Using CUDA (NVIDIA GPU) acceleration")
+        else:
+            self.device = "cpu"
+            print("MPS unavailable, falling back to CPU")
+
+        self.pipeline = KPipeline(lang_code=lang_code, repo_id="hexgrad/Kokoro-82M", device=self.device)
+        
 
     def generate_audio(self, text, voice="af_heart", speed=1.0):
         """Full audio generator (yields gs, ps, audio)"""

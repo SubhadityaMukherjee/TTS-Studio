@@ -9,48 +9,150 @@ from bs4 import BeautifulSoup
 from nltk import sent_tokenize
 
 
+
 class EpubParser:
+    @staticmethod
+    def _extract_paragraphs(soup):
+        """
+        Layered paragraph extraction:
+        1. <p> tags
+        2. block-level containers
+        3. newline split fallback
+        """
+
+        # 1️⃣ Standard <p> tags
+        paragraphs = [
+            p.get_text(" ", strip=True)
+            for p in soup.find_all("p")
+            if p.get_text(strip=True)
+        ]
+        if paragraphs:
+            return paragraphs
+
+        # 2️⃣ Block-level fallback
+        block_tags = soup.find_all(["div", "section", "article", "li"])
+        paragraphs = [
+            tag.get_text(" ", strip=True)
+            for tag in block_tags
+            if tag.get_text(strip=True)
+        ]
+        if paragraphs:
+            return paragraphs
+
+        # 3️⃣ <br> / newline fallback
+        raw_text = soup.get_text("\n", strip=True)
+        return [p.strip() for p in raw_text.split("\n") if p.strip()]
+
+    @staticmethod
+    def _extract_title(soup, item):
+        """
+        More flexible title detection.
+        """
+        title_tag = soup.find(["h1", "h2", "h3", "title"])
+        if title_tag and title_tag.get_text(strip=True):
+            return title_tag.get_text(strip=True)
+
+        return os.path.basename(item.get_name())
+
     @staticmethod
     def extract_chapters(epub_file):
         """
-        Extract chapters from an EPUB file with improved sentence and paragraph parsing.
+        Extract chapters from an EPUB file with layered fallback parsing.
+
+        Keeps original behavior but improves robustness across
+        non-standard EPUB structures.
         """
+
         book = epub.read_epub(epub_file)
         chapters = []
 
-        for idx, item in enumerate(book.get_items_of_type(ITEM_DOCUMENT)):
+        # ✅ Use spine order (correct reading order)
+        spine_items = []
+        for idref, _ in book.spine:
+            item = book.get_item_with_id(idref)
+            if item and item.get_type() == ITEM_DOCUMENT:
+                spine_items.append(item)
+
+        for idx, item in enumerate(spine_items):
             soup = BeautifulSoup(item.get_body_content(), "html.parser")
 
-            # Extract title from <h1> or <title>, fallback to item filename
-            title_tag = soup.find(["h1", "title"])
-            title = (
-                title_tag.get_text(strip=True)
-                if title_tag
-                else os.path.basename(item.get_name())
-            )
+            title = EpubParser._extract_title(soup, item)
+            paragraphs = EpubParser._extract_paragraphs(soup)
 
-            # Clean up text content
-            paragraphs = [
-                p.get_text(" ", strip=True)
-                for p in soup.find_all("p")
-                if p.get_text(strip=True)
-            ]
-            full_text = "\n\n".join(paragraphs)
+            full_text = "\n\n".join(paragraphs).strip()
 
-            # Sentence-level parsing for better TTS or downstream use
+            if not full_text:
+                continue
+
             sentences = []
             for para in paragraphs:
                 sentences.extend(sent_tokenize(para))
 
-            if full_text:
+            chapters.append(
+                {
+                    "title": title,
+                    "content": full_text,
+                    "sentences": sentences,
+                    "order": idx + 1,
+                }
+            )
+
+        # 🔎 Heuristic fallback:
+        # If only one large chapter detected, try splitting by headings
+        if len(chapters) == 1:
+            item = spine_items[0] if spine_items else None
+            if item:
+                soup = BeautifulSoup(item.get_body_content(), "html.parser")
+                headings = soup.find_all(["h1", "h2", "h3"])
+
+                if len(headings) > 1:
+                    split_chapters = []
+                    for idx, header in enumerate(headings):
+                        content = []
+                        for sib in header.find_next_siblings():
+                            if sib.name in ["h1", "h2", "h3"]:
+                                break
+                            text = sib.get_text(" ", strip=True)
+                            if text:
+                                content.append(text)
+
+                        text = "\n\n".join(content).strip()
+                        if text:
+                            split_chapters.append(
+                                {
+                                    "title": header.get_text(strip=True),
+                                    "content": text,
+                                    "sentences": sent_tokenize(text),
+                                    "order": idx + 1,
+                                }
+                            )
+
+                    if split_chapters:
+                        chapters = split_chapters
+
+        # 🧱 ORIGINAL fallback (unchanged)
+        if not chapters:
+            all_text_chunks = []
+            for item in book.get_items_of_type(ITEM_DOCUMENT):
+                soup = BeautifulSoup(item.get_body_content(), "html.parser")
+                text = soup.get_text(" ", strip=True)
+                if text:
+                    all_text_chunks.append(text)
+
+            if all_text_chunks:
+                combined = "\n\n".join(all_text_chunks)
+                sentences = sent_tokenize(combined)
+                book_title = book.get_metadata("DC", "title")
+                title = book_title[0][0] if book_title else os.path.basename(epub_file)
                 chapters.append(
                     {
                         "title": title,
-                        "content": full_text,
+                        "content": combined,
                         "sentences": sentences,
-                        "order": idx + 1,
+                        "order": 1,
                     }
                 )
+
         return chapters
 
 
@@ -102,5 +204,31 @@ class PdfParser:
                     "order": i + 1,
                 }
             )
+
+        # fallback: if markdown-based section splitting yielded nothing,
+        # fall back to raw page text.
+        if not chapters:
+            doc = fitz.open(self.pdf_path)
+            full_text = []
+            for page in doc:
+                txt = page.get_text("text")
+                if txt:
+                    full_text.append(txt)
+            doc.close()
+            combined = "\n\n".join(full_text).strip()
+            if combined:
+                paras = [p.strip() for p in re.split(r"\n{2,}", combined) if p.strip()]
+                sentences = []
+                for para in paras:
+                    sentences.extend(sent_tokenize(para))
+                chapters.append(
+                    {
+                        "title": os.path.basename(self.pdf_path),
+                        "content": combined,
+                        "paragraphs": paras,
+                        "sentences": sentences,
+                        "order": 1,
+                    }
+                )
 
         return chapters
