@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "kokoro-tts"
+name = "tts-studio"
 version = "1.0.0"
 description = "A modular high-quality TTS CLI using the Kokoro API"
 readme = "README.md"
@@ -25,4 +25,4 @@ dependencies = [
 ]
 
 [project.scripts]
-kokoro-tts = "kokoro_tts.cli:main"
+tts-studio = "tts_studio.cli:main"
