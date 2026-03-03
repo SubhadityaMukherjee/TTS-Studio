@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kokoro-tts"
+version = "1.0.0"
+description = "A modular high-quality TTS CLI using the Kokoro API"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "kokoro",
+  "soundfile",
+  "sounddevice",
+  "torch",
+  "click",
+  "numpy",
+  "EbookLib",
+  "beautifulsoup4",
+  "pymupdf4llm",
+  "pymupdf",
+]
+
+[project.scripts]
+kokoro-tts = "kokoro_tts.cli:main"
