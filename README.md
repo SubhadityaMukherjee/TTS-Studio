@@ -17,7 +17,7 @@ A high-quality text-to-speech CLI using the Kokoro API. This is HEAVILY inspired
 ## Installation
 
 ```bash
-pip install -e .
+uv sync
 ```
 
 ## Usage
@@ -26,17 +26,17 @@ pip install -e .
 
 Convert text to audio:
 ```bash
-tts-studio convert input.txt
+uv run tts-studio convert input.txt
 ```
 
 Convert EPUB file:
 ```bash
-tts-studio convert book.epub
+uv run tts-studio convert book.epub
 ```
 
 Convert PDF file:
 ```bash
-tts-studio convert document.pdf
+uv run tts-studio convert document.pdf
 ```
 
 Stream from stdin:
@@ -47,7 +47,7 @@ echo "Hello world" | tts-studio convert -
 ### Command Options
 
 ```bash
-tts-studio convert INPUT_FILE [OUTPUT_FILE] [OPTIONS]
+uv run tts-studio convert INPUT_FILE [OUTPUT_FILE] [OPTIONS]
 ```
 
 **Arguments:**
@@ -65,22 +65,22 @@ tts-studio convert INPUT_FILE [OUTPUT_FILE] [OPTIONS]
 
 Convert with custom voice and speed:
 ```bash
-tts-studio convert input.txt --voice af_heart --speed 1.2
+uv run tts-studio convert input.txt --voice af_heart --speed 1.2
 ```
 
 Split EPUB chapters into separate files:
 ```bash
-tts-studio convert book.epub --split-output ./audio_chapters/
+uv run tts-studio convert book.epub --split-output ./audio_chapters/
 ```
 
 Convert PDF with British English:
 ```bash
-tts-studio convert document.pdf --lang en-gb
+uv run tts-studio convert document.pdf --lang en-gb
 ```
 
 Stream audio in real-time:
 ```bash
-tts-studio convert input.txt --stream
+uv run tts-studio convert input.txt --stream
 ```
 
 ## Input Formats
