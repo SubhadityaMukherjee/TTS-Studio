@@ -2,8 +2,8 @@ import os
 import re
 
 import fitz  # PyMuPDF
-import pymupdf4llm
 import pymupdf.layout
+import pymupdf4llm
 from bs4 import BeautifulSoup
 from ebooklib import ITEM_DOCUMENT, epub
 from nltk import sent_tokenize
@@ -129,7 +129,6 @@ class EpubParser:
                     if split_chapters:
                         chapters = split_chapters
 
-        # 🧱 ORIGINAL fallback (unchanged)
         if not chapters:
             all_text_chunks = []
             for item in book.get_items_of_type(ITEM_DOCUMENT):
@@ -231,3 +230,9 @@ class PdfParser:
                 )
 
         return chapters
+
+
+if __name__ == "__main__":
+    pdfpars = PdfParser(pdf_path="/Users/smukherjee/Downloads/2203.02395v1.pdf")
+    chaps = pdfpars.get_chapters()
+    print(chaps)

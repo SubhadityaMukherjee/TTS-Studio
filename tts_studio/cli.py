@@ -66,22 +66,18 @@ def convert(input_file, output_file, voice, speed, lang, stream, split_output):
     processor = TTSProcessor(lang_code=final_lang)
 
     # --- Input handling ---
-    if input_file == "-":
-        content = sys.stdin.read()
-        chapters = [{"title": "STDIN", "content": content, "order": 1}]
-    elif input_file.endswith(".epub"):
+    if input_file.endswith(".epub"):
         chapters = EpubParser.extract_chapters(input_file)
     elif input_file.endswith(".pdf"):
         chapters = PdfParser(input_file).get_chapters()
     else:
-        with open(input_file, "r", encoding="utf-8") as f:
-            chapters = [
-                {"title": Path(input_file).stem, "content": f.read(), "order": 1}
-            ]
-
-    if not chapters:
-        click.secho("❌ No chapters found to process.", fg="red")
-        sys.exit(1)
+        if Path(input_file).is_file():
+            with open(input_file, "r", encoding="utf-8") as f:
+                chapters = [
+                    {"title": Path(input_file).stem, "content": f.read(), "order": 1}
+                ]
+        else:
+            chapters = [{"title": "Content", "content": str(input_file), "order": 1}]
 
     os.makedirs(split_output or ".", exist_ok=True)
     max_workers = min(4, multiprocessing.cpu_count() // 2)
