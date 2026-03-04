@@ -25,21 +25,25 @@ uv sync
 ### Basic Usage
 
 Convert text to audio:
+
 ```bash
 uv run tts-studio convert input.txt
 ```
 
 Convert EPUB file:
+
 ```bash
 uv run tts-studio convert book.epub
 ```
 
 Convert PDF file:
+
 ```bash
 uv run tts-studio convert document.pdf
 ```
 
 Stream from stdin:
+
 ```bash
 echo "Hello world" | tts-studio convert -
 ```
@@ -51,34 +55,46 @@ uv run tts-studio convert INPUT_FILE [OUTPUT_FILE] [OPTIONS]
 ```
 
 **Arguments:**
-- `INPUT_FILE`: Path to input file (text, EPUB, PDF) or `-` for stdin
-- `OUTPUT_FILE`: (Optional) Output audio file path
+
+- `INPUT_FILE`: Path to input file(s) (text, EPUB, PDF) or `-` for stdin. You can pass in multiple files
 
 **Options:**
+
 - `--voice`: Voice ID to use (default: `af_heart`)
 - `--speed`: Speech speed multiplier (default: `1.0`)
 - `--lang`: Language code (`a` = en/en-us, `b` = en-gb, default: `a`)
 - `--stream`: Enable real-time audio streaming
 - `--split-output`: Directory to save individual chapter files instead of one file
+- `--abstract-only`: For PDF files, if you just want to have the audio files for the Abstract, set this flag
 
 ### Examples
 
 Convert with custom voice and speed:
+
 ```bash
 uv run tts-studio convert input.txt --voice af_heart --speed 1.2
 ```
 
+Convet multiple research papers but just save their abstracts to a folder
+
+```bash
+uv run tts-studio convert /Users/smukherjee/Downloads/2203.02395v1.pdf /Users/smukherjee/Downloads/2025.emnlp-main.794.pdf /Users/smukherjee/Downloads/2025.ijcnlp-demo.3.pdf --split-output ~/Downloads/books/papers/ --abstract-only --voice af_heart
+```
+
 Split EPUB chapters into separate files:
+
 ```bash
 uv run tts-studio convert book.epub --split-output ./audio_chapters/
 ```
 
 Convert PDF with British English:
+
 ```bash
 uv run tts-studio convert document.pdf --lang en-gb
 ```
 
 Stream audio in real-time:
+
 ```bash
 uv run tts-studio convert input.txt --stream
 ```
