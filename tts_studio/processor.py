@@ -1,8 +1,10 @@
+import asyncio
 import logging
 import os
 import re
 import warnings
 
+import edge_tts
 import nltk
 import sounddevice as sd
 import soundfile as sf
@@ -126,3 +128,75 @@ class TTSProcessor:
         if all_audio:
             combined = torch.cat(all_audio)
             sf.write(output_path, combined.numpy(), 24000)
+
+
+class EdgeTTSProcessor:
+    """Wrapper around edge-tts for text-to-speech."""
+
+    def __init__(self, voice="en-US-AvaMultilingualNeural"):
+        self.voice = voice
+
+    async def _generate_audio_async(self, text, output_path):
+        """Generate audio using edge-tts asynchronously."""
+        communicate = edge_tts.Communicate(text, self.voice)
+        await communicate.save(output_path)
+
+    def generate_audio(self, text, output_path):
+        """Generate audio using edge-tts (synchronous wrapper)."""
+        asyncio.run(self._generate_audio_async(text, output_path))
+
+    def stream_generator(self, text, voice=None, speed=1.0):
+        """
+        Yields (text_chunk, audio_data) for CLI streaming.
+        Note: edge-tts doesn't support streaming, so this processes whole text.
+        """
+        import tempfile
+        import numpy as np
+
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
+            tmp_path = tmp_file.name
+
+        self.generate_audio(text, tmp_path)
+
+        data, samplerate = sf.read(tmp_path)
+        if len(data.shape) > 1:
+            data = data.mean(axis=1)
+
+        yield text, torch.from_numpy(data)
+
+        os.unlink(tmp_path)
+
+    def save(self, text, output_path, voice=None, speed=1.0, chunk_size=None):
+        """
+        Save text to audio file.
+        If chunk_size is provided, splits text into chunks and concatenates.
+        """
+        if chunk_size is not None:
+            import tempfile
+
+            temp_files = []
+            for i in range(0, len(text), chunk_size):
+                chunk_text = text[i : i + chunk_size]
+                with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
+                    tmp_file = tmp.name
+                self.generate_audio(chunk_text, tmp_file)
+                temp_files.append(tmp_file)
+
+            import numpy as np
+
+            all_data = []
+            samplerate = None
+            for tmp_file in temp_files:
+                data, sr = sf.read(tmp_file)
+                if len(data.shape) > 1:
+                    data = data.mean(axis=1)
+                all_data.append(data)
+                if samplerate is None:
+                    samplerate = sr
+                os.unlink(tmp_file)
+
+            if all_data:
+                combined = np.concatenate(all_data)
+                sf.write(output_path, combined, samplerate)
+        else:
+            self.generate_audio(text, output_path)

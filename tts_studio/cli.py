@@ -10,7 +10,7 @@ import soundfile as sf
 from tqdm import tqdm
 
 from .parsers import EpubParser, PdfParser
-from .processor import TTSProcessor
+from .processor import EdgeTTSProcessor, TTSProcessor
 
 
 @click.group()
@@ -19,7 +19,7 @@ def main():
     pass
 
 
-def process_chapter(chapter, voice, speed, lang, split_output, abstract_only):
+def process_chapter(chapter, voice, speed, lang, split_output, abstract_only, engine="kokoro"):
     """Run in a separate process for TTS conversion."""
 
     # --- Safe filename formatting ---
@@ -32,19 +32,24 @@ def process_chapter(chapter, voice, speed, lang, split_output, abstract_only):
     safe_title = re.sub(r"[^\w\d_-]+", "_", safe_title)
     safe_title = re.sub(r"_+", "_", safe_title).strip("_")
 
-    out_file = os.path.join(split_output, f"{chapter['order']:02d}_{safe_title}.wav")
+    out_ext = ".mp3" if engine == "edge" else ".wav"
+    out_file = os.path.join(split_output, f"{chapter['order']:02d}_{safe_title}{out_ext}")
 
     # --- Skip if file already exists ---
     if os.path.exists(out_file):
         return out_file, "skipped"
 
-    processor = TTSProcessor(lang_code=lang)
+    if engine == "edge":
+        processor = EdgeTTSProcessor(voice=voice)
+        processor.save(chapter["content"], out_file, voice=voice, speed=speed)
+    else:
+        processor = TTSProcessor(lang_code=lang)
 
-    # Process with progress-aware streaming
-    generator = processor.stream_generator(chapter["content"], voice=voice, speed=speed)
-    with sf.SoundFile(out_file, "w", samplerate=24000, channels=1) as f:
-        for _, audio in generator:
-            f.write(audio)
+        # Process with progress-aware streaming
+        generator = processor.stream_generator(chapter["content"], voice=voice, speed=speed)
+        with sf.SoundFile(out_file, "w", samplerate=24000, channels=1) as f:
+            for _, audio in generator:
+                f.write(audio)
 
     return out_file, "completed"
 
@@ -74,6 +79,7 @@ def process_single_file(
     abstract_only,
     file_index,
     total_files,
+    engine="kokoro",
 ):
     """Process all chapters of a single input file."""
     chapters = load_chapters(input_file)
@@ -108,6 +114,7 @@ def process_single_file(
                     final_lang,
                     file_out_dir,
                     abstract_only,
+                    engine,
                 ): ch
                 for ch in chapters
                 if ch["content"].strip()
@@ -155,7 +162,13 @@ def process_single_file(
     is_flag=True,
     help="If you only want to convert the abstract of a paper (PDF input)",
 )
-def convert(input_files, voice, speed, lang, stream, split_output, abstract_only):
+@click.option(
+    "--engine",
+    default="kokoro",
+    type=click.Choice(["kokoro", "edge"]),
+    help="TTS engine to use (kokoro or edge)",
+)
+def convert(input_files, voice, speed, lang, stream, split_output, abstract_only, engine):
     """Convert one or more text, EPUB, or PDF files to audio.
 
     Pass multiple INPUT_FILES to queue them for sequential processing.
@@ -166,6 +179,8 @@ def convert(input_files, voice, speed, lang, stream, split_output, abstract_only
       tts-studio convert book.epub --split-output ./out
 
       tts-studio convert paper1.pdf paper2.pdf paper3.pdf --split-output ./out --abstract-only
+
+      tts-studio convert text.txt --engine edge
     """
 
     # --- Language mapping ---
@@ -209,6 +224,7 @@ def convert(input_files, voice, speed, lang, stream, split_output, abstract_only
                 abstract_only,
                 idx,
                 total_files,
+                engine,
             )
             total_skipped += skipped
             queue_bar.update(1)
