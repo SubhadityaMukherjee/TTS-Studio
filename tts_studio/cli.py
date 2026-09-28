@@ -246,6 +246,20 @@ def process_single_file(
     "(default: BREEZE_TTS_MODEL env var or mlx-community/Breeze-TTS-2-mlx-4bit)",
 )
 @click.option("--seed", default=42, type=int, help="Breeze only: sampling seed")
+@click.option(
+    "--breeze-workers",
+    default=2,
+    type=click.IntRange(1, 8),
+    help="Breeze only: parallel chunk-generation processes; each loads its "
+    "own model copy (~3 GB RAM each). 1 = single process",
+)
+@click.option(
+    "--breeze-depth-mode",
+    default="cached",
+    type=click.Choice(["cached", "compiled"]),
+    help="Breeze only: depth-decoder mode (compiled may be faster, with a "
+    "one-time compile warm-up)",
+)
 def convert(
     input_files,
     voice,
@@ -261,6 +275,8 @@ def convert(
     ref_text,
     breeze_model,
     seed,
+    breeze_workers,
+    breeze_depth_mode,
 ):
     """Convert one or more text, EPUB, or PDF files to audio.
 
@@ -321,6 +337,8 @@ def convert(
             ref_text=ref_text,
             cfg_scale=cfg_scale,
             seed=seed,
+            depth_mode=breeze_depth_mode,
+            workers=breeze_workers,
         )
         # Load the runtime once for the whole queue so the auto-created
         # voice anchor carries across every file and chapter.

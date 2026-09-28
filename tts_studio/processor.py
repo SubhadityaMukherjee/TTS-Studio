@@ -227,13 +227,84 @@ class EdgeTTSProcessor:
             self.generate_audio(text, output_path, speed=speed)
 
 
+def _resolve_hf_repo_cached(repo_id, label="model", required=("config.json",)):
+    """Resolve a Hugging Face repo to a local snapshot directory without
+    touching the network when possible. The resolved path is remembered in
+    ``~/.cache/tts-studio/`` and re-validated with ``required`` marker files,
+    so already-downloaded models start instantly and work offline."""
+    marker = Path.home() / ".cache" / "tts-studio" / f"{repo_id.replace('/', '__')}.txt"
+    if marker.is_file():
+        cached = Path(marker.read_text().strip())
+        if cached.is_dir() and all(cached.joinpath(r).exists() for r in required):
+            return cached
+    # Look for a usable snapshot in the local HF cache (no network).
+    from huggingface_hub.constants import HF_HUB_CACHE
+
+    snapshots = (
+        Path(HF_HUB_CACHE) / f"models--{repo_id.replace('/', '--')}" / "snapshots"
+    )
+    if snapshots.is_dir():
+        for snapshot in snapshots.iterdir():
+            if snapshot.is_dir() and all(
+                snapshot.joinpath(r).exists() for r in required
+            ):
+                marker.parent.mkdir(parents=True, exist_ok=True)
+                marker.write_text(str(snapshot))
+                return snapshot
+    from huggingface_hub import snapshot_download
+
+    tqdm.write(f"Downloading {label} '{repo_id}' (first run only)...")
+    snapshot = Path(snapshot_download(repo_id=repo_id))
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(str(snapshot))
+    return snapshot
+
+
 def transcribe_sample(audio_path, model="mlx-community/whisper-base-mlx"):
     """Transcribe a voice sample with mlx-whisper (used to auto-fill the
     reference transcript required for Breeze voice cloning)."""
     import mlx_whisper
 
-    result = mlx_whisper.transcribe(str(audio_path), path_or_hf_repo=model)
+    local = _resolve_hf_repo_cached(
+        model, "whisper model", required=("config.json", "weights.safetensors")
+    )
+    result = mlx_whisper.transcribe(str(audio_path), path_or_hf_repo=str(local))
     return result["text"].strip()
+
+
+_BREEZE_WORKER = {}
+
+
+def _breeze_worker_init(model_dir, instruction, cfg_scale, seed, sampling, depth_mode):
+    """Spawn-context initializer: each worker loads its own model copy."""
+    _BREEZE_WORKER["proc"] = BreezeTTSProcessor(
+        model=model_dir,
+        instruction=instruction,
+        cfg_scale=cfg_scale,
+        seed=seed,
+        depth_mode=depth_mode,
+        workers=1,
+        **sampling,
+    )
+
+
+def _breeze_worker_anchor(_text):
+    proc = _BREEZE_WORKER["proc"]
+    proc._create_anchor(quiet=True)
+    return proc.ref_audio, proc.ref_text, proc.sample_rate
+
+
+def _breeze_worker_chunk(task):
+    index, text, ref_audio, ref_text = task
+    proc = _BREEZE_WORKER["proc"]
+    import numpy as np
+
+    if ref_audio and proc.ref_audio != ref_audio:
+        proc.ref_audio, proc.ref_text = ref_audio, ref_text
+        proc._cache_ref_encoding()
+    pieces = list(proc._generate_chunk_audio(text, quiet=True))
+    audio = np.concatenate(pieces) if pieces else np.zeros(0, dtype=np.float32)
+    return index, proc._trim_silence(audio), proc.sample_rate
 
 
 class BreezeTTSProcessor:
@@ -287,10 +358,9 @@ class BreezeTTSProcessor:
         top_k=50,
         top_p=1.0,
         depth_mode="cached",
+        workers=1,
     ):
-        import mlx.core as mx
         from mlx_audio.tts.models.breeze_tts.breeze_tts import Model
-        from mlx_audio.tts.utils import load_model
 
         self.instruction = instruction
         self.ref_audio = str(ref_audio) if ref_audio else None
@@ -298,21 +368,34 @@ class BreezeTTSProcessor:
         self.cfg_scale = float(cfg_scale or 1.0)
         self.seed = seed
         self.sampling = dict(temperature=temperature, top_k=top_k, top_p=top_p)
+        self.depth_mode = depth_mode
+        self.workers = max(1, int(workers))
 
         if (self.ref_audio is None) != (self.ref_text is None):
             raise ValueError(
                 "ref_audio and ref_text must be provided together for voice cloning"
             )
 
-        model_dir = self._resolve_model(model)
-        self.model = load_model(model_dir)
+        self._model_dir = str(self._resolve_model(model))
+        self._anchor_dir = None
+        self._pool = None
+
+        if self.workers > 1:
+            # Each worker loads its own model copy; the parent stays light.
+            self.model = None
+            self.sample_rate = None
+            return
+
+        import mlx.core as mx
+        from mlx_audio.tts.utils import load_model
+
+        self.model = load_model(self._model_dir)
         if not isinstance(self.model, Model):
             raise ValueError(
-                f"'{model_dir}' is not a Breeze TTS 2 checkpoint "
+                f"'{self._model_dir}' is not a Breeze TTS 2 checkpoint "
                 f"(got {type(self.model).__name__})"
             )
         self.sample_rate = int(self.model.sample_rate)
-        self._anchor_dir = None
         self._max_frames_seen = 0
 
         decode_rate = getattr(self.model.audio_tokenizer, "decode_upsample_rate", None)
@@ -332,19 +415,17 @@ class BreezeTTSProcessor:
             self._cache_ref_encoding()
 
     def _resolve_model(self, model):
-        """Return a local checkpoint directory, downloading from the Hub if
-        a repo id is given."""
+        """Return a local checkpoint directory, resolving repo ids once and
+        preferring the local cache so later runs work offline."""
         candidate = model or os.environ.get("BREEZE_TTS_MODEL") or self.DEFAULT_MODEL
         path = Path(candidate).expanduser()
         if path.is_dir():
             return path
-        from mlx_audio.utils import get_model_path
-
-        tqdm.write(
-            f"Downloading Breeze TTS 2 model '{candidate}' "
-            "(~3 GB, first run only)..."
+        return _resolve_hf_repo_cached(
+            candidate,
+            "Breeze TTS 2 model (~3 GB)",
+            required=("config.json", "audio_tokenizer", "model.safetensors"),
         )
-        return get_model_path(candidate)
 
     def _cache_ref_encoding(self):
         """Encode the reference audio once and pin it on the model instance,
@@ -388,16 +469,17 @@ class BreezeTTSProcessor:
                     )
                 yield text_chunk, audio
 
-    def _create_anchor(self):
+    def _create_anchor(self, quiet=False):
         """Generate one short anchor utterance and adopt it as the voice
         reference for all subsequent chunks, so the voice stays stable
         across chapters. Skipped (with a warning) if generation fails."""
         import numpy as np
 
         text = self.ANCHOR_SENTENCE
-        tqdm.write(f"  🎙  Creating voice anchor for Breeze ({len(text)} chars)...")
+        if not quiet:
+            tqdm.write(f"  🎙  Creating voice anchor for Breeze ({len(text)} chars)...")
         try:
-            pieces = list(self._generate_chunk_audio(text))
+            pieces = list(self._generate_chunk_audio(text, quiet=quiet))
             audio = np.concatenate(pieces) if pieces else None
             if audio is None or audio.size == 0:
                 raise ValueError("empty anchor generation")
@@ -449,7 +531,7 @@ class BreezeTTSProcessor:
         codec frames/s, with headroom for pauses."""
         return min(self.MAX_TOKENS_CEILING, max(750, int(len(text) * 1.8) + 100))
 
-    def _generate_chunk_audio(self, text):
+    def _generate_chunk_audio(self, text, quiet=False):
         """Yield numpy audio arrays for one text chunk."""
         import mlx.core as mx
         import numpy as np
@@ -491,14 +573,14 @@ class BreezeTTSProcessor:
                 if (loud_seen and silent >= self.SILENCE_STOP_SECONDS) or (
                     not loud_seen and generated >= self.ALL_SILENT_STOP_SECONDS
                 ):
-                    if loud_seen:
+                    if loud_seen and not quiet:
                         tqdm.write(
                             f"    breeze: stopped after {silent:.0f}s of trailing "
                             "silence"
                         )
                     break
                 yield audio
-            if total_frames >= max_tokens:
+            if total_frames >= max_tokens and not quiet:
                 tqdm.write(
                     "warning: text chunk hit the generation length limit; audio "
                     "may end abruptly — try a smaller chunk size"
@@ -509,6 +591,85 @@ class BreezeTTSProcessor:
             finally:
                 self.model.audio_tokenizer.decoder.reset_streaming_state()
 
+    def _ensure_pool(self):
+        """Lazily spawn the worker pool; workers each load their own model
+        and are reused across chapters."""
+        if self._pool is None:
+            import multiprocessing as mp
+            from concurrent.futures import ProcessPoolExecutor
+
+            ctx = mp.get_context("spawn")
+            tqdm.write(
+                f"  ⚡ Starting {self.workers} Breeze worker processes "
+                f"(~{self.workers} model copies in RAM)..."
+            )
+            self._pool = ProcessPoolExecutor(
+                max_workers=self.workers,
+                mp_context=ctx,
+                initializer=_breeze_worker_init,
+                initargs=(
+                    self._model_dir,
+                    self.instruction,
+                    self.cfg_scale,
+                    self.seed,
+                    self.sampling,
+                    self.depth_mode,
+                ),
+            )
+        return self._pool
+
+    def close(self):
+        if self._pool is not None:
+            self._pool.shutdown()
+            self._pool = None
+
+    def _save_parallel(self, text, output_path, chunk_size=None):
+        """Generate chunks across worker processes and assemble in order."""
+        from concurrent.futures import as_completed
+
+        import numpy as np
+
+        chunks = chunk_text(
+            text, initial_chunk_size=chunk_size or self.DEFAULT_CHUNK_SIZE
+        )
+        pool = self._ensure_pool()
+
+        ref_audio, ref_text = self.ref_audio, self.ref_text
+        if not ref_audio:
+            tqdm.write("  🎙  Creating voice anchor for Breeze...")
+            ref_audio, ref_text, self.sample_rate = pool.submit(
+                _breeze_worker_anchor, None
+            ).result()
+            self.ref_audio, self.ref_text = ref_audio, ref_text
+            ref_audio, ref_text = ref_audio or None, ref_text
+
+        futures = [
+            pool.submit(_breeze_worker_chunk, (i, c, ref_audio, ref_text))
+            for i, c in enumerate(chunks)
+        ]
+        audios = [None] * len(chunks)
+        for future in as_completed(futures):
+            index, audio, sample_rate = future.result()
+            if self.sample_rate is None:
+                self.sample_rate = sample_rate
+            audios[index] = audio
+            tqdm.write(
+                f"    breeze: chunk {index + 1}/{len(chunks)} done "
+                f"({audio.size / sample_rate:.1f}s audio)"
+            )
+
+        rate = self.sample_rate
+        with sf.SoundFile(
+            output_path, "w", samplerate=rate, channels=1, subtype="PCM_16"
+        ) as f:
+            for index, audio in enumerate(audios):
+                if audio is not None and audio.size:
+                    f.write(audio)
+                    if index < len(audios) - 1 and self.CHUNK_PAUSE > 0:
+                        f.write(
+                            np.zeros(int(rate * self.CHUNK_PAUSE), dtype=np.float32)
+                        )
+
     def generate_audio(self, text, output_path, speed=1.0):
         """Generate audio using Breeze TTS 2 (speed is not supported; steer
         pace through the instruction instead)."""
@@ -518,8 +679,12 @@ class BreezeTTSProcessor:
         """
         Save text to a WAV file, streaming audio chunks to disk. If
         chunk_size is provided, text is split at sentence boundaries into
-        chunks of roughly that many characters (default 600).
+        chunks of roughly that many characters (default 600). With
+        ``workers > 1``, chunks are generated in parallel worker processes
+        (each holding its own model copy) and assembled in order.
         """
+        if self.workers > 1:
+            return self._save_parallel(text, output_path, chunk_size=chunk_size)
         with sf.SoundFile(
             output_path, "w", samplerate=self.sample_rate, channels=1, subtype="PCM_16"
         ) as f:
