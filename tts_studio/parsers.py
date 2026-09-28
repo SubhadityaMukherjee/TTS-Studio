@@ -6,7 +6,8 @@ import pymupdf.layout
 import pymupdf4llm
 from bs4 import BeautifulSoup
 from ebooklib import ITEM_DOCUMENT, epub
-from nltk import sent_tokenize
+
+from .utils import normalize_text, split_sentences
 
 
 class EpubParser:
@@ -17,24 +18,28 @@ class EpubParser:
         1. <p> tags
         2. block-level containers
         3. newline split fallback
+
+        Uses an empty separator so that words split across inline tags
+        (e.g. ``well-<span>known</span>``) stay joined as ``well-known``
+        instead of becoming two words with a spurious TTS break.
         """
 
         # 1️⃣ Standard <p> tags
-        paragraphs = [
-            p.get_text(" ", strip=True)
-            for p in soup.find_all("p")
-            if p.get_text(strip=True)
-        ]
+        paragraphs = []
+        for p in soup.find_all("p"):
+            text = re.sub(r"\s+", " ", p.get_text("", strip=False)).strip()
+            if text:
+                paragraphs.append(text)
         if paragraphs:
             return paragraphs
 
         # 2️⃣ Block-level fallback
         block_tags = soup.find_all(["div", "section", "article", "li"])
         paragraphs = [
-            tag.get_text(" ", strip=True)
+            re.sub(r"\s+", " ", tag.get_text(" ", strip=True)).strip()
             for tag in block_tags
-            if tag.get_text(strip=True)
         ]
+        paragraphs = [p for p in paragraphs if p]
         if paragraphs:
             return paragraphs
 
@@ -85,7 +90,7 @@ class EpubParser:
 
             sentences = []
             for para in paragraphs:
-                sentences.extend(sent_tokenize(para))
+                sentences.extend(split_sentences(para))
 
             chapters.append(
                 {
@@ -121,7 +126,7 @@ class EpubParser:
                                 {
                                     "title": header.get_text(strip=True),
                                     "content": text,
-                                    "sentences": sent_tokenize(text),
+                                    "sentences": split_sentences(text),
                                     "order": idx + 1,
                                 }
                             )
@@ -139,7 +144,7 @@ class EpubParser:
 
             if all_text_chunks:
                 combined = "\n\n".join(all_text_chunks)
-                sentences = sent_tokenize(combined)
+                sentences = split_sentences(combined)
                 book_title = book.get_metadata("DC", "title")
                 title = book_title[0][0] if book_title else os.path.basename(epub_file)
                 chapters.append(
@@ -187,16 +192,21 @@ class PdfParser:
             title = lines[0].strip("# ").strip() if lines else f"Section {i+1}"
             content = lines[1].strip() if len(lines) > 1 else section
 
-            # Paragraphs and sentences
-            paragraphs = [p.strip() for p in re.split(r"\n{2,}", content) if p.strip()]
+            # Paragraphs and sentences (strip markdown so it isn't read aloud)
+            paragraphs = [
+                normalize_text(p, strip_markdown=True)
+                for p in re.split(r"\n{2,}", content)
+                if p.strip()
+            ]
+            paragraphs = [p for p in paragraphs if p]
             sentences = []
             for para in paragraphs:
-                sentences.extend(sent_tokenize(para))
+                sentences.extend(split_sentences(para))
 
             chapters.append(
                 {
                     "title": title[:100],
-                    "content": content,
+                    "content": "\n\n".join(paragraphs),
                     "paragraphs": paragraphs,
                     "sentences": sentences,
                     "order": i + 1,
@@ -215,10 +225,15 @@ class PdfParser:
             doc.close()
             combined = "\n\n".join(full_text).strip()
             if combined:
-                paras = [p.strip() for p in re.split(r"\n{2,}", combined) if p.strip()]
+                paras = [
+                    normalize_text(p)
+                    for p in re.split(r"\n{2,}", combined)
+                    if p.strip()
+                ]
+                paras = [p for p in paras if p]
                 sentences = []
                 for para in paras:
-                    sentences.extend(sent_tokenize(para))
+                    sentences.extend(split_sentences(para))
                 chapters.append(
                     {
                         "title": os.path.basename(self.pdf_path),

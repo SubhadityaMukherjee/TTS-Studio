@@ -11,10 +11,15 @@ import soundfile as sf
 import torch
 from kokoro import KPipeline
 
+from .utils import split_paragraphs, split_sentences
+
 nltk.download("punkt", quiet=True)
+nltk.download("punkt_tab", quiet=True)
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 logging.getLogger("transformers").setLevel(logging.ERROR)
+
+SAMPLE_RATE = 24000
 
 
 class TTSProcessor:
@@ -33,7 +38,15 @@ class TTSProcessor:
       runs ``gc.collect()`` to help avoid ``RuntimeError: out of memory``
       when working with large batches or long texts.
     """
-    def __init__(self, lang_code="a"):
+    def __init__(self, lang_code="a", sentence_pause=0.25, paragraph_pause=0.6):
+        # Pauses (seconds) stitched between synthesized chunks. Without them
+        # each sentence is cut hard into the next, which sounds like weird
+        # abrupt breaks. Set either to 0 to disable.
+        self.sentence_pause = float(os.environ.get("TTS_SENTENCE_PAUSE", sentence_pause))
+        self.paragraph_pause = float(
+            os.environ.get("TTS_PARAGRAPH_PAUSE", paragraph_pause)
+        )
+
         if torch.backends.mps.is_available():
             self.device = "mps"
             print("Using MPS (Metal) acceleration")
@@ -87,47 +100,49 @@ class TTSProcessor:
         # after the caller finishes iterating, free cache
         self._clear_memory()
 
+    def _silence(self, seconds):
+        """Silence tensor of the given duration at the pipeline sample rate."""
+        return torch.zeros(int(SAMPLE_RATE * seconds))
+
     def stream_generator(self, text, voice="af_heart", speed=1.0):
         """
         Yields (text_chunk, audio_tensor) for CLI streaming.
-        Splits text into chunks internally to allow progress tracking.
+
+        Splits text into paragraphs and sentences, synthesizes each
+        separately, and stitches in natural pauses between sentences
+        (sentence_pause) and paragraphs (paragraph_pause) so the audio
+        doesn't cut abruptly between chunks.
         """
-        sentences = nltk.sent_tokenize(text)
-        for sent in sentences:
-            if sent.strip():
+        first_chunk = True
+        for para in split_paragraphs(text):
+            for sent in split_sentences(para):
+                if not sent.strip():
+                    continue
+                if not first_chunk and self.sentence_pause > 0:
+                    yield "", self._silence(self.sentence_pause)
+                first_chunk = False
                 for gs, ps, audio in self.generate_audio(sent.strip(), voice, speed):
                     if audio is not None:
                         yield sent, audio
                 # clear cache between sentences to keep memory low
                 self._clear_memory()
+            if self.paragraph_pause > 0:
+                yield "", self._silence(self.paragraph_pause)
+                first_chunk = True
 
     def save(self, text, output_path, voice="af_heart", speed=1.0, chunk_size=None):
         """
-        Save text to WAV file.
-        If chunk_size is provided, splits text into chunks and appends audio.
+        Save text to WAV file with natural pauses between sentences and
+        paragraphs. (chunk_size is accepted for API compatibility; the text
+        is always streamed sentence-by-sentence.)
         """
         all_audio = []
-
-        if chunk_size is not None:
-            # Chunked saving
-            for i in range(0, len(text), chunk_size):
-                chunk_text = text[i : i + chunk_size]
-                generator = self.generate_audio(chunk_text, voice, speed)
-                for _, _, audio in generator:
-                    if audio is not None:
-                        all_audio.append(audio)
-                self._clear_memory()
-        else:
-            # Single-shot saving
-            generator = self.generate_audio(text, voice, speed)
-            for _, _, audio in generator:
-                if audio is not None:
-                    all_audio.append(audio)
-            self._clear_memory()
+        for _, audio in self.stream_generator(text, voice, speed):
+            all_audio.append(audio)
 
         if all_audio:
             combined = torch.cat(all_audio)
-            sf.write(output_path, combined.numpy(), 24000)
+            sf.write(output_path, combined.numpy(), SAMPLE_RATE)
 
 
 class EdgeTTSProcessor:
@@ -136,14 +151,16 @@ class EdgeTTSProcessor:
     def __init__(self, voice="en-US-AvaMultilingualNeural"):
         self.voice = voice
 
-    async def _generate_audio_async(self, text, output_path):
+    async def _generate_audio_async(self, text, output_path, rate=None):
         """Generate audio using edge-tts asynchronously."""
-        communicate = edge_tts.Communicate(text, self.voice)
+        communicate = edge_tts.Communicate(text, self.voice, rate=rate)
         await communicate.save(output_path)
 
-    def generate_audio(self, text, output_path):
+    def generate_audio(self, text, output_path, speed=1.0):
         """Generate audio using edge-tts (synchronous wrapper)."""
-        asyncio.run(self._generate_audio_async(text, output_path))
+        # edge-tts expresses rate as a percentage offset from normal pace
+        rate = f"{round((speed - 1.0) * 100):+d}%"
+        asyncio.run(self._generate_audio_async(text, output_path, rate=rate))
 
     def stream_generator(self, text, voice=None, speed=1.0):
         """
@@ -156,7 +173,7 @@ class EdgeTTSProcessor:
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
             tmp_path = tmp_file.name
 
-        self.generate_audio(text, tmp_path)
+        self.generate_audio(text, tmp_path, speed=speed)
 
         data, samplerate = sf.read(tmp_path)
         if len(data.shape) > 1:
@@ -179,7 +196,7 @@ class EdgeTTSProcessor:
                 chunk_text = text[i : i + chunk_size]
                 with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
                     tmp_file = tmp.name
-                self.generate_audio(chunk_text, tmp_file)
+                self.generate_audio(chunk_text, tmp_file, speed=speed)
                 temp_files.append(tmp_file)
 
             import numpy as np
@@ -199,4 +216,4 @@ class EdgeTTSProcessor:
                 combined = np.concatenate(all_data)
                 sf.write(output_path, combined, samplerate)
         else:
-            self.generate_audio(text, output_path)
+            self.generate_audio(text, output_path, speed=speed)
