@@ -29,15 +29,15 @@ dependencies = [
   "isort>=8.0.1",
   "edge-tts>=7.2.8",
   "en-core-web-sm",
-  "breeze-tts-mlx",
   "tqdm>=4.67.3",
+  "mlx-audio==0.5.1",
+  "mlx==0.32.2",
 ]
 
 [tool.uv.sources]
 # Pre-install the spacy model misaki needs; without it misaki shells out to
 # `python -m pip` at runtime, which fails in pip-less uv venvs.
 en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
-breeze-tts-mlx = { git = "https://github.com/rishikksh20/breeze-tts-mlx.git" }
 
 [project.scripts]
 tts-studio = "tts_studio.cli:main"

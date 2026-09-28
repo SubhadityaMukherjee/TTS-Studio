@@ -14,6 +14,7 @@ import torch
 from kokoro import KPipeline
 from tqdm import tqdm
 
+from .breeze_fast import FastDepth
 from .utils import chunk_text, split_paragraphs, split_sentences
 
 nltk.download("punkt", quiet=True)
@@ -227,13 +228,16 @@ class EdgeTTSProcessor:
 
 
 class BreezeTTSProcessor:
-    """Wrapper around Breeze TTS 2 (MLX port) for text-to-speech on
-    Apple Silicon.
+    """Wrapper around Breeze TTS 2 (mlx-audio + FastDepth) for text-to-speech
+    on Apple Silicon.
 
+    * Runs the mlx-audio Breeze implementation with the FastDepth patch
+      (vendored in ``breeze_fast.py``), which fixes the depth decoder's
+      missing intra-frame KV reuse — roughly a 2-4x speedup — and uses 4bit
+      weights by default (~3 GB).
     * Voice design: pass ``instruction`` (a natural-language voice
-      description, e.g. ``"A warm, thoughtful young woman with a calm
-      delivery"``). Use ``cfg_scale=4`` to strengthen instruction
-      following.
+      description). Use ``cfg_scale=4`` to strengthen instruction following
+      (at extra compute cost per frame).
     * Voice clone: pass ``ref_audio`` (path to clean reference audio)
       together with ``ref_text`` (its exact transcript).
     * Voice direction: pass all three to clone the reference voice while
@@ -241,23 +245,22 @@ class BreezeTTSProcessor:
     * Auto-anchoring: without ``ref_audio``, the first generation creates a
       short anchor utterance in the designed/default voice, which is then
       used as the reference for every subsequent chunk — keeping one stable
-      voice across chapters instead of a freshly sampled voice each chunk.
-      Reuse the processor across chapters/files to keep the same voice.
+      voice across chapters. Reuse the processor across chapters/files to
+      keep the same voice.
     * Inline vocal events are supported in the text, e.g. ``(laugh)``,
       ``(sigh)``, ``(cough)``, ``(clears throat)``.
-    * The model weights (INT8, ~3.7 GB) are downloaded automatically from
-    the Hugging Face Hub on first use, or pass a local checkpoint directory
-    via ``model`` / the ``BREEZE_TTS_MODEL`` environment variable.
-    * The runtime is heavy (3B params), so reuse one processor instance for
-    many texts rather than creating a new one per chapter.
+    * The model is downloaded automatically from the Hugging Face Hub on
+      first use, or pass a local directory via ``model`` / the
+      ``BREEZE_TTS_MODEL`` environment variable.
     """
 
-    DEFAULT_REPO = "rishikksh20/Breeze-TTS-2-mlx"
+    DEFAULT_MODEL = "mlx-community/Breeze-TTS-2-mlx-4bit"
     DEFAULT_CHUNK_SIZE = 600
     CHUNK_PAUSE = 0.25
     SILENCE_RMS = 0.02
     SILENCE_STOP_SECONDS = 4.0
     ALL_SILENT_STOP_SECONDS = 10.0
+    MAX_TOKENS_CEILING = 2000
     ANCHOR_SENTENCE = (
         "This is my voice, recorded once so that every part of this "
         "reading sounds exactly like me."
@@ -274,101 +277,80 @@ class BreezeTTSProcessor:
         temperature=0.9,
         top_k=50,
         top_p=1.0,
+        depth_mode="cached",
     ):
-        from breeze_tts_mlx.runtime import BreezeMLXRuntime, MLXRuntimeConfig
-        from breeze_tts_mlx.sampling import SamplingConfig
+        import mlx.core as mx
+        from mlx_audio.tts.models.breeze_tts.breeze_tts import Model
+        from mlx_audio.tts.utils import load_model
 
         self.instruction = instruction
         self.ref_audio = str(ref_audio) if ref_audio else None
         self.ref_text = ref_text
-        self.cfg_scale = float(cfg_scale)
-        self.template_name = self._select_template()
-        self._anchor_dir = None
+        self.cfg_scale = float(cfg_scale or 1.0)
+        self.seed = seed
+        self.sampling = dict(temperature=temperature, top_k=top_k, top_p=top_p)
 
-        # The codec logs a "Residual tail decode" warning at the end of
-        # every generation; it is expected (the runtime closes the request
-        # right after) and floods the console, clobbering progress bars.
-        logging.getLogger("breeze_tts_mlx").setLevel(logging.ERROR)
-
-        model_dir = self._resolve_model(model)
-        sampling = SamplingConfig(
-            temperature=temperature,
-            top_k=top_k,
-            top_p=top_p,
-            do_sample=True,
-        )
-        self.runtime = BreezeMLXRuntime(
-            model_dir,
-            audio_device="auto",
-            seed=seed,
-            config=MLXRuntimeConfig(
-                backbone_sampling=sampling,
-                depth_sampling=sampling,
-            ),
-        )
-        self.sample_rate = self.runtime.sample_rate
-        self._patch_ref_encoding()
-
-    def _patch_ref_encoding(self):
-        """Cache reference-audio encoding. ``prepare_inputs`` re-encodes the
-        ref audio through the audio tokenizer for every chunk (~5s each on
-        MPS); the anchor/user ref is immutable, so encode it once."""
-        import breeze_tts_mlx.templates as templates
-
-        if getattr(templates.encode_prompt_audio, "_tts_studio_cached", False):
-            return
-        original = templates.encode_prompt_audio
-        cache = {}
-
-        def cached(audio_tokenizer, audio_path):
-            key = str(audio_path)
-            if key not in cache:
-                cache[key] = original(audio_tokenizer, audio_path)
-            return cache[key]
-
-        cached._tts_studio_cached = True
-        templates.encode_prompt_audio = cached
-
-    def _select_template(self):
-        """Pick the prompt template, mirroring the reference CLI's auto mode."""
-        has_ref = self.ref_audio is not None or self.ref_text is not None
-        if has_ref and (self.ref_audio is None or not self.ref_text):
+        if (self.ref_audio is None) != (self.ref_text is None):
             raise ValueError(
                 "ref_audio and ref_text must be provided together for voice cloning"
             )
-        if has_ref and self.instruction:
-            name = "ref_edit_tata"
-        elif has_ref:
-            name = "ref_clone_tata"
-        elif self.instruction:
-            name = "tts_instruction"
-        else:
-            name = "tts_plain"
-        if name in ("tts_plain", "ref_clone_tata") and self.cfg_scale != 1.0:
+
+        model_dir = self._resolve_model(model)
+        self.model = load_model(model_dir)
+        if not isinstance(self.model, Model):
             raise ValueError(
-                "cfg_scale > 1 requires an instruction (voice design/direction)"
+                f"'{model_dir}' is not a Breeze TTS 2 checkpoint "
+                f"(got {type(self.model).__name__})"
             )
-        return name
+        self.sample_rate = int(self.model.sample_rate)
+        self._anchor_dir = None
+        self._max_frames_seen = 0
+
+        decode_rate = getattr(self.model.audio_tokenizer, "decode_upsample_rate", None)
+        if decode_rate is None:
+            decode_rate = getattr(
+                self.model.audio_tokenizer.decoder, "decode_upsample_rate", None
+            )
+        if not decode_rate or decode_rate <= 0:
+            raise ValueError("Breeze audio tokenizer has no valid decode rate")
+        # Stream PCM in ~2-codec-frame slices for responsive silence checks.
+        self.streaming_interval = (2 + 1e-6) * decode_rate / self.sample_rate
+
+        self._fast_depth = FastDepth(self.model, depth_mode)
+        self._fast_depth.install()
+        mx.eval(self.model.parameters())
+        if self.ref_audio:
+            self._cache_ref_encoding()
 
     def _resolve_model(self, model):
         """Return a local checkpoint directory, downloading from the Hub if
         a repo id is given."""
-        candidate = model or os.environ.get("BREEZE_TTS_MODEL") or self.DEFAULT_REPO
+        candidate = model or os.environ.get("BREEZE_TTS_MODEL") or self.DEFAULT_MODEL
         path = Path(candidate).expanduser()
-        if (path / "mlx_config.json").is_file():
+        if path.is_dir():
             return path
-        from huggingface_hub import snapshot_download
+        from mlx_audio.utils import get_model_path
 
         tqdm.write(
-            f"Downloading Breeze TTS 2 checkpoint '{candidate}' "
-            "(~3.7 GB, first run only)..."
+            f"Downloading Breeze TTS 2 model '{candidate}' "
+            "(~3 GB, first run only)..."
         )
-        return Path(snapshot_download(repo_id=candidate))
+        return get_model_path(candidate)
+
+    def _cache_ref_encoding(self):
+        """Encode the reference audio once and pin it on the model instance,
+        so per-chunk generation skips the (~5s) re-encode."""
+        import mlx.core as mx
+        from mlx_audio.tts.models.breeze_tts.breeze_tts import Model
+
+        codes = Model._encode_reference(self.model, self.ref_audio)
+        mx.eval(codes)
+        self.model._encode_reference = lambda ref: codes
 
     def stream_generator(self, text, voice=None, speed=1.0, chunk_size=None):
         """
         Yields (text_chunk, audio_data) with text split at sentence
-        boundaries, since generation length is capped (~60s per chunk).
+        boundaries, since generation length is capped per chunk.
         """
         import numpy as np
 
@@ -430,7 +412,7 @@ class BreezeTTSProcessor:
 
         self.ref_audio = anchor_path
         self.ref_text = text
-        self.template_name = "ref_edit_tata" if self.instruction else "ref_clone_tata"
+        self._cache_ref_encoding()
 
     def _trim_silence(self, audio, frame_rms_threshold=0.02, pad_seconds=0.15):
         """Trim leading/trailing near-silence from a generated chunk. The
@@ -453,68 +435,70 @@ class BreezeTTSProcessor:
         end = min(audio.size, (int(loud[-1]) + 1) * frame + pad)
         return audio[start:end]
 
-    def _generate_chunk_audio(self, text, request_id=None):
+    def _max_tokens_for(self, text):
+        """Generation cap sized from the text: ~15 chars/s of speech at 25
+        codec frames/s, with headroom for pauses."""
+        return min(self.MAX_TOKENS_CEILING, max(750, int(len(text) * 1.8) + 100))
+
+    def _generate_chunk_audio(self, text):
         """Yield numpy audio arrays for one text chunk."""
-        from breeze_tts_mlx.templates import get_template, prepare_inputs
-
-        request = {
-            "id": request_id or f"tts-studio-{uuid.uuid4().hex}",
-            "text": text,
-            "speaker": "S0",
-        }
-        if self.instruction:
-            request["instruction"] = self.instruction
-        if self.ref_audio:
-            request["ref_audio_path"] = self.ref_audio
-            request["ref_text"] = self.ref_text.strip()
-
-        inputs = prepare_inputs(
-            self.runtime.tokenizer,
-            self.runtime.audio_tokenizer,
-            self.runtime,
-            [request],
-            get_template(self.template_name),
-            guidance_scale=self.cfg_scale,
-            guidance_scale_ref=None,
-            guidance_scale_ins=None,
-        )
-        request_id = request["id"]
+        import mlx.core as mx
         import numpy as np
 
+        ref_audio = self.ref_audio or None
+        ref_text = self.ref_text if ref_audio else None
+        max_tokens = self._max_tokens_for(text)
+        results = self.model.generate(
+            text=text,
+            instruct=self.instruction or None,
+            ref_audio=ref_audio,
+            ref_text=ref_text,
+            cfg_scale=self.cfg_scale,
+            max_tokens=max_tokens,
+            seed=self.seed,
+            stream=True,
+            streaming_interval=self.streaming_interval,
+            **self.sampling,
+        )
         generated = 0.0
         silent = 0.0
         loud_seen = False
-        for chunk in self.runtime.iter_audio_chunks(inputs, request_id=request_id):
-            audio = chunk.audio
-            duration = audio.size / self.sample_rate
-            generated += duration
-            rms = float(np.sqrt(np.square(audio.astype(np.float32)).mean()))
-            if rms >= self.SILENCE_RMS:
-                loud_seen = True
-                silent = 0.0
-            else:
-                silent += duration
-            # The model can ramble long low-level dither after the speech
-            # before emitting EOS; stopping early saves that dead time (the
-            # trailing silence is trimmed from the output anyway).
-            if (loud_seen and silent >= self.SILENCE_STOP_SECONDS) or (
-                not loud_seen and generated >= self.ALL_SILENT_STOP_SECONDS
-            ):
-                if loud_seen:
-                    tqdm.write(
-                        f"    breeze: stopped after {silent:.0f}s of trailing "
-                        "silence"
-                    )
-                break
-            if (
-                chunk.timing.get("total_frames")
-                >= self.runtime.runtime_config.max_new_tokens
-            ):
+        total_frames = 0
+        try:
+            for result in results:
+                audio = np.array(result.audio.astype(mx.float32), copy=True)
+                duration = audio.size / self.sample_rate
+                generated += duration
+                total_frames += int(result.token_count)
+                rms = float(np.sqrt(np.square(audio.astype(np.float32)).mean()))
+                if rms >= self.SILENCE_RMS:
+                    loud_seen = True
+                    silent = 0.0
+                else:
+                    silent += duration
+                # The model can ramble long low-level dither after the speech
+                # before emitting EOS; stopping early saves that dead time (the
+                # trailing silence is trimmed from the output anyway).
+                if (loud_seen and silent >= self.SILENCE_STOP_SECONDS) or (
+                    not loud_seen and generated >= self.ALL_SILENT_STOP_SECONDS
+                ):
+                    if loud_seen:
+                        tqdm.write(
+                            f"    breeze: stopped after {silent:.0f}s of trailing "
+                            "silence"
+                        )
+                    break
+                yield audio
+            if total_frames >= max_tokens:
                 tqdm.write(
                     "warning: text chunk hit the generation length limit; audio "
                     "may end abruptly — try a smaller chunk size"
                 )
-            yield audio
+        finally:
+            try:
+                results.close()
+            finally:
+                self.model.audio_tokenizer.decoder.reset_streaming_state()
 
     def generate_audio(self, text, output_path, speed=1.0):
         """Generate audio using Breeze TTS 2 (speed is not supported; steer
@@ -525,8 +509,7 @@ class BreezeTTSProcessor:
         """
         Save text to a WAV file, streaming audio chunks to disk. If
         chunk_size is provided, text is split at sentence boundaries into
-        chunks of roughly that many characters (default 600, keeping each
-        generation under the model's length cap).
+        chunks of roughly that many characters (default 600).
         """
         with sf.SoundFile(
             output_path, "w", samplerate=self.sample_rate, channels=1, subtype="PCM_16"

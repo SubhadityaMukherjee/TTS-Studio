@@ -240,7 +240,7 @@ def process_single_file(
 @click.option(
     "--breeze-model",
     help="Breeze only: local checkpoint directory or Hugging Face repo id "
-    "(default: BREEZE_TTS_MODEL env var or rishikksh20/Breeze-TTS-2-mlx)",
+    "(default: BREEZE_TTS_MODEL env var or mlx-community/Breeze-TTS-2-mlx-4bit)",
 )
 @click.option("--seed", default=42, type=int, help="Breeze only: sampling seed")
 def convert(
