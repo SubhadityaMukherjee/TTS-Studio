@@ -10,7 +10,7 @@ import soundfile as sf
 from tqdm import tqdm
 
 from .parsers import EpubParser, PdfParser
-from .processor import EdgeTTSProcessor, TTSProcessor
+from .processor import BreezeTTSProcessor, EdgeTTSProcessor, TTSProcessor
 
 
 @click.group()
@@ -19,7 +19,16 @@ def main():
     pass
 
 
-def process_chapter(chapter, voice, speed, lang, split_output, abstract_only, engine="kokoro"):
+def process_chapter(
+    chapter,
+    voice,
+    speed,
+    lang,
+    split_output,
+    abstract_only,
+    engine="kokoro",
+    breeze_processor=None,
+):
     """Run in a separate process for TTS conversion."""
 
     # --- Safe filename formatting ---
@@ -33,7 +42,9 @@ def process_chapter(chapter, voice, speed, lang, split_output, abstract_only, en
     safe_title = re.sub(r"_+", "_", safe_title).strip("_")
 
     out_ext = ".mp3" if engine == "edge" else ".wav"
-    out_file = os.path.join(split_output, f"{chapter['order']:02d}_{safe_title}{out_ext}")
+    out_file = os.path.join(
+        split_output, f"{chapter['order']:02d}_{safe_title}{out_ext}"
+    )
 
     # --- Skip if file already exists ---
     if os.path.exists(out_file):
@@ -42,11 +53,18 @@ def process_chapter(chapter, voice, speed, lang, split_output, abstract_only, en
     if engine == "edge":
         processor = EdgeTTSProcessor(voice=voice)
         processor.save(chapter["content"], out_file, voice=voice, speed=speed)
+    elif engine == "breeze":
+        # The 3B MLX runtime is too heavy to load per chapter and per worker
+        # process; callers pass a shared processor and run chapters serially.
+        processor = breeze_processor or BreezeTTSProcessor()
+        processor.save(chapter["content"], out_file, speed=speed)
     else:
         processor = TTSProcessor(lang_code=lang)
 
         # Process with progress-aware streaming
-        generator = processor.stream_generator(chapter["content"], voice=voice, speed=speed)
+        generator = processor.stream_generator(
+            chapter["content"], voice=voice, speed=speed
+        )
         with sf.SoundFile(out_file, "w", samplerate=24000, channels=1) as f:
             for _, audio in generator:
                 f.write(audio)
@@ -70,6 +88,16 @@ def load_chapters(input_file):
             return [{"title": "Content", "content": str(input_file), "order": 1}]
 
 
+def _log_chapter_result(result, title):
+    """Log a chapter conversion result; returns True if it was skipped."""
+    out_path, status = result
+    if status == "skipped":
+        tqdm.write(click.style(f"  ⏩ Skipped (exists): {out_path}", fg="yellow"))
+        return True
+    tqdm.write(click.style(f"  ✔ Completed: {out_path}", fg="green"))
+    return False
+
+
 def process_single_file(
     input_file,
     voice,
@@ -80,6 +108,8 @@ def process_single_file(
     file_index,
     total_files,
     engine="kokoro",
+    breeze_opts=None,
+    breeze_processor=None,
 ):
     """Process all chapters of a single input file."""
     chapters = load_chapters(input_file)
@@ -93,6 +123,7 @@ def process_single_file(
 
     os.makedirs(file_out_dir, exist_ok=True)
 
+    chapters = [ch for ch in chapters if ch["content"].strip()]
     max_workers = min(4, multiprocessing.cpu_count() // 2)
 
     click.secho(
@@ -104,46 +135,64 @@ def process_single_file(
     skipped_count = 0
 
     with tqdm(total=len(chapters), desc=f"  Chapters", ncols=80, leave=True) as pbar:
-        with ProcessPoolExecutor(max_workers=max_workers) as executor:
-            futures = {
-                executor.submit(
-                    process_chapter,
-                    ch,
-                    voice,
-                    speed,
-                    final_lang,
-                    file_out_dir,
-                    abstract_only,
-                    engine,
-                ): ch
-                for ch in chapters
-                if ch["content"].strip()
-            }
-
-            for future in as_completed(futures):
-                chapter = futures[future]
+        if engine == "breeze":
+            # One shared runtime (3B params) across all chapters, serially;
+            # if the caller didn't provide one, load it now (per file).
+            processor = breeze_processor or BreezeTTSProcessor(**(breeze_opts or {}))
+            for ch in chapters:
                 try:
-                    out_path, status = future.result()
-                    if status == "skipped":
+                    result = process_chapter(
+                        ch,
+                        voice,
+                        speed,
+                        final_lang,
+                        file_out_dir,
+                        abstract_only,
+                        engine,
+                        breeze_processor=processor,
+                    )
+                    if _log_chapter_result(result, ch["title"]):
                         skipped_count += 1
-                        tqdm.write(
-                            click.style(
-                                f"  ⏩ Skipped (exists): {out_path}", fg="yellow"
-                            )
-                        )
-                    else:
-                        tqdm.write(
-                            click.style(f"  ✔ Completed: {out_path}", fg="green")
-                        )
                 except Exception as e:
                     tqdm.write(
                         click.style(
-                            f"  ❌ Error processing chapter {chapter['title']}: {e}",
+                            f"  ❌ Error processing chapter {ch['title']}: {e}",
                             fg="red",
                         )
                     )
                 finally:
                     pbar.update(1)
+        else:
+            with ProcessPoolExecutor(max_workers=max_workers) as executor:
+                futures = {
+                    executor.submit(
+                        process_chapter,
+                        ch,
+                        voice,
+                        speed,
+                        final_lang,
+                        file_out_dir,
+                        abstract_only,
+                        engine,
+                    ): ch
+                    for ch in chapters
+                }
+
+                for future in as_completed(futures):
+                    chapter = futures[future]
+                    try:
+                        result = future.result()
+                        if _log_chapter_result(result, chapter["title"]):
+                            skipped_count += 1
+                    except Exception as e:
+                        tqdm.write(
+                            click.style(
+                                f"  ❌ Error processing chapter {chapter['title']}: {e}",
+                                fg="red",
+                            )
+                        )
+                    finally:
+                        pbar.update(1)
 
     return skipped_count
 
@@ -165,10 +214,51 @@ def process_single_file(
 @click.option(
     "--engine",
     default="kokoro",
-    type=click.Choice(["kokoro", "edge"]),
-    help="TTS engine to use (kokoro or edge)",
+    type=click.Choice(["kokoro", "edge", "breeze"]),
+    help="TTS engine to use (kokoro, edge, or breeze)",
 )
-def convert(input_files, voice, speed, lang, stream, split_output, abstract_only, engine):
+@click.option(
+    "--instruction",
+    help="Breeze only: natural-language voice description, e.g. "
+    "'A warm, thoughtful narrator with a calm delivery'",
+)
+@click.option(
+    "--cfg-scale",
+    default=1.0,
+    type=float,
+    help="Breeze only: CFG guidance scale for --instruction (try 4)",
+)
+@click.option(
+    "--ref-audio",
+    type=click.Path(exists=True),
+    help="Breeze only: path to clean reference audio for voice cloning",
+)
+@click.option(
+    "--ref-text",
+    help="Breeze only: exact transcript of the reference audio",
+)
+@click.option(
+    "--breeze-model",
+    help="Breeze only: local checkpoint directory or Hugging Face repo id "
+    "(default: BREEZE_TTS_MODEL env var or rishikksh20/Breeze-TTS-2-mlx)",
+)
+@click.option("--seed", default=42, type=int, help="Breeze only: sampling seed")
+def convert(
+    input_files,
+    voice,
+    speed,
+    lang,
+    stream,
+    split_output,
+    abstract_only,
+    engine,
+    instruction,
+    cfg_scale,
+    ref_audio,
+    ref_text,
+    breeze_model,
+    seed,
+):
     """Convert one or more text, EPUB, or PDF files to audio.
 
     Pass multiple INPUT_FILES to queue them for sequential processing.
@@ -181,7 +271,28 @@ def convert(input_files, voice, speed, lang, stream, split_output, abstract_only
       tts-studio convert paper1.pdf paper2.pdf paper3.pdf --split-output ./out --abstract-only
 
       tts-studio convert text.txt --engine edge
+
+      tts-studio convert text.txt --engine breeze --instruction "A warm, thoughtful young woman with a calm delivery" --cfg-scale 4
     """
+    breeze_opts = None
+    if engine == "breeze":
+        if (ref_audio is None) != (ref_text is None):
+            raise click.BadParameter(
+                "--ref-audio and --ref-text must be provided together"
+            )
+        breeze_opts = dict(
+            model=breeze_model,
+            instruction=instruction,
+            ref_audio=ref_audio,
+            ref_text=ref_text,
+            cfg_scale=cfg_scale,
+            seed=seed,
+        )
+        # Load the runtime once for the whole queue so the auto-created
+        # voice anchor carries across every file and chapter.
+        breeze_processor = BreezeTTSProcessor(**breeze_opts)
+    else:
+        breeze_processor = None
 
     # --- Language mapping ---
     lang_map = {"en": "a", "en-us": "a", "en-gb": "b"}
@@ -225,6 +336,8 @@ def convert(input_files, voice, speed, lang, stream, split_output, abstract_only
                 idx,
                 total_files,
                 engine,
+                breeze_opts=breeze_opts,
+                breeze_processor=breeze_processor,
             )
             total_skipped += skipped
             queue_bar.update(1)

@@ -14,7 +14,7 @@ _ABBREV_RE = re.compile(
     re.IGNORECASE,
 )
 _TERMINALS = (".", "!", "?", "…", "。", "！", "？")
-_CLOSERS = ("\"", "'", "”", "’", ")", "]", "»")
+_CLOSERS = ('"', "'", "”", "’", ")", "]", "»")
 
 
 def _ends_sentence(sentence):

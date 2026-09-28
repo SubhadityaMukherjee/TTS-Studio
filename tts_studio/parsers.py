@@ -2,8 +2,8 @@ import os
 import re
 
 import fitz  # PyMuPDF
-import pymupdf.layout
 import pymupdf4llm
+import pymupdf.layout
 from bs4 import BeautifulSoup
 from ebooklib import ITEM_DOCUMENT, epub
 

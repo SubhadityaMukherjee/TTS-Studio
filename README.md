@@ -60,12 +60,18 @@ uv run tts-studio convert INPUT_FILE [OUTPUT_FILE] [OPTIONS]
 
 **Options:**
 
-- `--voice`: Voice ID to use (default: `af_heart`)
+- `--engine`: TTS engine: `kokoro`, `edge`, or `breeze` (default: `kokoro`)
+- `--voice`: Voice ID to use (default: `af_heart`; kokoro/edge only)
 - `--speed`: Speech speed multiplier (default: `1.0`)
 - `--lang`: Language code (`a` = en/en-us, `b` = en-gb, default: `a`)
 - `--stream`: Enable real-time audio streaming
 - `--split-output`: Directory to save individual chapter files instead of one file
 - `--abstract-only`: For PDF files, if you just want to have the audio files for the Abstract, set this flag
+- `--instruction`: (breeze) natural-language voice description for voice design
+- `--cfg-scale`: (breeze) CFG guidance scale for `--instruction` (try 4)
+- `--ref-audio` / `--ref-text`: (breeze) reference audio + its exact transcript for voice cloning
+- `--breeze-model`: (breeze) local checkpoint dir or HF repo id (default: `BREEZE_TTS_MODEL` env var or `rishikksh20/Breeze-TTS-2-mlx`)
+- `--seed`: (breeze) sampling seed (default: 42)
 
 ### Examples
 
@@ -73,6 +79,18 @@ Convert with custom voice and speed:
 
 ```bash
 uv run tts-studio convert input.txt --voice af_heart --speed 1.2
+```
+
+Convert with [Breeze TTS 2](https://huggingface.co/BreezeBlue/Breeze-TTS-2) on Apple Silicon (voice design, no reference audio needed):
+
+```bash
+uv run tts-studio convert input.txt --engine breeze --instruction "A warm, thoughtful young woman with a calm, reflective delivery" --cfg-scale 4
+```
+
+Clone a voice from reference audio:
+
+```bash
+uv run tts-studio convert input.txt --engine breeze --ref-audio reference.wav --ref-text "Exact transcript of the reference audio."
 ```
 
 Convet multiple research papers but just save their abstracts to a folder
@@ -110,6 +128,14 @@ uv run tts-studio convert input.txt --stream
 
 - **Chapter handling**: EPUB and PDF files are automatically split into chapters
 - **Progress display**: Real-time progress bar shows processing status
-- **Parallel processing**: Uses up to 4 workers (adjusted based on CPU count)
+- **Parallel processing**: Uses up to 4 workers (adjusted based on CPU count); the breeze engine processes chapters serially with one shared runtime
 - **File skipping**: Existing output files are automatically skipped
-- **Audio format**: Generated audio is saved at 24kHz, mono WAV format
+- **Audio format**: Generated audio is saved at 24kHz, mono WAV (edge outputs MP3)
+
+## Breeze TTS 2 notes
+
+- Requires an Apple-Silicon Mac and [SoX](https://sox.sourceforge.io/) (`brew install sox`); the official upstream code is CUDA-only
+- The INT8 MLX checkpoint (~3.7 GB) is downloaded automatically on first use
+- **Voice auto-anchoring**: without `--ref-audio`, the first generation creates a short anchor utterance that is then cloned for every subsequent chunk, chapter, and file in the run — giving one stable voice. Use `--instruction` (+ `--cfg-scale 4`) to design the anchor's voice, or `--ref-audio`/`--ref-text` to anchor to a real recording
+- Supports English and Chinese; inline vocal events like `(laugh)`, `(sigh)`, `(cough)` can appear in the text
+- Model weights and self-hosted outputs are licensed for research and non-commercial use only (see the [BreezeBlue license](https://huggingface.co/BreezeBlue/Breeze-TTS-2))
