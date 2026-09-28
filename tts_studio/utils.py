@@ -1,8 +1,12 @@
+import hashlib
 import itertools
+import os
 import re
+import shutil
 import sys
 import threading
 import time
+from pathlib import Path
 
 from nltk import sent_tokenize
 
@@ -130,3 +134,65 @@ def chunk_text(text, initial_chunk_size=1000):
     if current_chunk:
         chunks.append(" ".join(current_chunk))
     return chunks
+
+
+class ChunkCache:
+    """Disk cache of per-chunk audio enabling resume after a crash or quit.
+
+    Chunks are stored as ``.npy`` files keyed by (namespace, index, text
+    hash) so that cached audio is only reused for the identical chunk of
+    the identical text, voice, and generation settings. Writes are atomic
+    (temp file + ``os.replace``) so a killed process never leaves a
+    half-written chunk that looks complete. The cache is best-effort: any
+    I/O failure is silently ignored, and :meth:`clear` removes it once the
+    final output has been assembled.
+    """
+
+    def __init__(self, directory, namespace=""):
+        self.dir = Path(directory)
+        self.namespace = namespace
+        self._ns = hashlib.sha1(namespace.encode("utf-8")).hexdigest()[:12]
+
+    def _path(self, index, text):
+        digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:12]
+        return self.dir / f"{index:05d}_{digest}_{self._ns}.npy"
+
+    def get(self, index, text):
+        """Return cached audio for a chunk, or None if not cached."""
+        import numpy as np
+
+        path = self._path(index, text)
+        if not path.is_file():
+            return None
+        try:
+            audio = np.load(path)
+            if audio.ndim == 1 and audio.size:
+                return audio
+        except Exception:
+            pass
+        try:
+            path.unlink()
+        except OSError:
+            pass
+        return None
+
+    def put(self, index, text, audio):
+        """Atomically cache audio for a chunk (best-effort)."""
+        import numpy as np
+
+        path = self._path(index, text)
+        tmp = path.with_name(path.name + ".tmp")
+        try:
+            self.dir.mkdir(parents=True, exist_ok=True)
+            with open(tmp, "wb") as f:
+                np.save(f, np.asarray(audio, dtype=np.float32))
+            os.replace(tmp, path)
+        except OSError:
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+
+    def clear(self):
+        """Remove the cache directory (call after the output is complete)."""
+        shutil.rmtree(self.dir, ignore_errors=True)

@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from .parsers import EpubParser, PdfParser
 from .processor import BreezeTTSProcessor, EdgeTTSProcessor, TTSProcessor
+from .utils import ChunkCache
 
 
 @click.group()
@@ -56,18 +57,30 @@ def process_chapter(
     elif engine == "breeze":
         # The 3B MLX runtime is too heavy to load per chapter and per worker
         # process; callers pass a shared processor and run chapters serially.
+        # save() itself resumes: finished chunks are cached under
+        # <out_file>.chunks/ and the final write is atomic.
         processor = breeze_processor or BreezeTTSProcessor()
         processor.save(chapter["content"], out_file, speed=speed)
     else:
         processor = TTSProcessor(lang_code=lang)
 
-        # Process with progress-aware streaming
-        generator = processor.stream_generator(
-            chapter["content"], voice=voice, speed=speed
+        # Process with progress-aware streaming; cache finished sentences
+        # so a crashed run resumes instead of restarting the chapter.
+        cache = ChunkCache(
+            out_file + ".chunks",
+            namespace=f"kokoro|{lang}|{voice}|{speed}|24000",
         )
-        with sf.SoundFile(out_file, "w", samplerate=24000, channels=1) as f:
+        generator = processor.stream_generator(
+            chapter["content"], voice=voice, speed=speed, cache=cache
+        )
+        part_file = out_file + ".part"
+        with sf.SoundFile(
+            part_file, "w", samplerate=24000, channels=1, format="WAV", subtype="PCM_16"
+        ) as f:
             for _, audio in generator:
                 f.write(audio)
+        os.replace(part_file, out_file)
+        cache.clear()
 
     return out_file, "completed"
 

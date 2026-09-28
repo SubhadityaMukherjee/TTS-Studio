@@ -1,8 +1,9 @@
 import asyncio
+import hashlib
+import json
 import logging
 import os
 import re
-import uuid
 import warnings
 from pathlib import Path
 
@@ -15,7 +16,7 @@ from kokoro import KPipeline
 from tqdm import tqdm
 
 from .breeze_fast import FastDepth
-from .utils import chunk_text, split_paragraphs, split_sentences
+from .utils import ChunkCache, chunk_text, split_paragraphs, split_sentences
 
 nltk.download("punkt", quiet=True)
 nltk.download("punkt_tab", quiet=True)
@@ -47,6 +48,7 @@ class TTSProcessor:
         # Pauses (seconds) stitched between synthesized chunks. Without them
         # each sentence is cut hard into the next, which sounds like weird
         # abrupt breaks. Set either to 0 to disable.
+        self.lang_code = lang_code
         self.sentence_pause = float(
             os.environ.get("TTS_SENTENCE_PAUSE", sentence_pause)
         )
@@ -111,16 +113,20 @@ class TTSProcessor:
         """Silence tensor of the given duration at the pipeline sample rate."""
         return torch.zeros(int(SAMPLE_RATE * seconds))
 
-    def stream_generator(self, text, voice="af_heart", speed=1.0):
+    def stream_generator(self, text, voice="af_heart", speed=1.0, cache=None):
         """
         Yields (text_chunk, audio_tensor) for CLI streaming.
 
         Splits text into paragraphs and sentences, synthesizes each
         separately, and stitches in natural pauses between sentences
         (sentence_pause) and paragraphs (paragraph_pause) so the audio
-        doesn't cut abruptly between chunks.
+        doesn't cut abruptly between chunks. If a ``cache`` (a
+        :class:`~tts_studio.utils.ChunkCache`) is supplied, each finished
+        sentence is stored there and resumed runs reuse it instead of
+        regenerating.
         """
         first_chunk = True
+        sentence_index = 0
         for para in split_paragraphs(text):
             for sent in split_sentences(para):
                 if not sent.strip():
@@ -128,11 +134,25 @@ class TTSProcessor:
                 if not first_chunk and self.sentence_pause > 0:
                     yield "", self._silence(self.sentence_pause)
                 first_chunk = False
-                for gs, ps, audio in self.generate_audio(sent.strip(), voice, speed):
-                    if audio is not None:
-                        yield sent, audio
+                audio = cache.get(sentence_index, sent) if cache else None
+                if audio is not None:
+                    yield sent, torch.from_numpy(audio)
+                    sentence_index += 1
+                    continue
+                pieces = [
+                    a
+                    for _, _, a in self.generate_audio(sent.strip(), voice, speed)
+                    if a is not None
+                ]
                 # clear cache between sentences to keep memory low
                 self._clear_memory()
+                if not pieces:
+                    continue
+                audio = torch.cat(pieces) if len(pieces) > 1 else pieces[0]
+                if cache:
+                    cache.put(sentence_index, sent, audio.numpy())
+                sentence_index += 1
+                yield sent, audio
             if self.paragraph_pause > 0:
                 yield "", self._silence(self.paragraph_pause)
                 first_chunk = True
@@ -141,15 +161,25 @@ class TTSProcessor:
         """
         Save text to WAV file with natural pauses between sentences and
         paragraphs. (chunk_size is accepted for API compatibility; the text
-        is always streamed sentence-by-sentence.)
+        is always streamed sentence-by-sentence.) Finished sentences are
+        cached under ``<output>.chunks/`` and the final file is written
+        atomically via a ``.part`` rename, so a crashed or interrupted run
+        resumes where it left off.
         """
+        cache = ChunkCache(
+            str(output_path) + ".chunks",
+            namespace=f"kokoro|{self.lang_code}|{voice}|{speed}|{SAMPLE_RATE}",
+        )
         all_audio = []
-        for _, audio in self.stream_generator(text, voice, speed):
+        for _, audio in self.stream_generator(text, voice, speed, cache=cache):
             all_audio.append(audio)
 
         if all_audio:
             combined = torch.cat(all_audio)
-            sf.write(output_path, combined.numpy(), SAMPLE_RATE)
+            part_path = str(output_path) + ".part"
+            sf.write(part_path, combined.numpy(), SAMPLE_RATE, format="WAV")
+            os.replace(part_path, output_path)
+            cache.clear()
 
 
 class EdgeTTSProcessor:
@@ -224,7 +254,18 @@ class EdgeTTSProcessor:
                 combined = np.concatenate(all_data)
                 sf.write(output_path, combined, samplerate)
         else:
-            self.generate_audio(text, output_path, speed=speed)
+            # Generate to a temp file and rename atomically so a crash
+            # mid-download never leaves a truncated mp3 that looks done.
+            part_path = str(output_path) + ".part"
+            try:
+                self.generate_audio(text, part_path, speed=speed)
+                os.replace(part_path, output_path)
+            finally:
+                if os.path.exists(part_path):
+                    try:
+                        os.unlink(part_path)
+                    except OSError:
+                        pass
 
 
 def _resolve_hf_repo_cached(repo_id, label="model", required=("config.json",)):
@@ -427,6 +468,37 @@ class BreezeTTSProcessor:
             required=("config.json", "audio_tokenizer", "model.safetensors"),
         )
 
+    def _anchor_paths(self):
+        """Stable on-disk location for the auto-created voice anchor, keyed
+        by the generation settings so a resumed run reuses the exact same
+        voice instead of designing a new one."""
+        payload = json.dumps(
+            {
+                "model": self._model_dir,
+                "instruction": self.instruction,
+                "cfg_scale": self.cfg_scale,
+                "seed": self.seed,
+                "sampling": self.sampling,
+            },
+            sort_keys=True,
+        )
+        key = hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]
+        d = Path.home() / ".cache" / "tts-studio" / "anchors" / key
+        return d / "anchor.wav", d / "ref.txt"
+
+    def _ensure_anchor(self):
+        """Adopt the persisted voice anchor if one exists (idempotent)."""
+        if self.ref_audio is not None:  # set by caller, or "" after a failure
+            return
+        anchor_wav, anchor_txt = self._anchor_paths()
+        if anchor_wav.is_file() and anchor_txt.is_file():
+            self.ref_audio = str(anchor_wav)
+            self.ref_text = anchor_txt.read_text(encoding="utf-8").strip()
+            self._cache_ref_encoding()
+            tqdm.write("  🎙  Reusing persisted voice anchor")
+            return
+        self._create_anchor()
+
     def _cache_ref_encoding(self):
         """Encode the reference audio once and pin it on the model instance,
         so per-chunk generation skips the (~5s) re-encode."""
@@ -437,15 +509,17 @@ class BreezeTTSProcessor:
         mx.eval(codes)
         self.model._encode_reference = lambda ref: codes
 
-    def stream_generator(self, text, voice=None, speed=1.0, chunk_size=None):
+    def stream_generator(self, text, voice=None, speed=1.0, chunk_size=None, cache=None):
         """
         Yields (text_chunk, audio_data) with text split at sentence
-        boundaries, since generation length is capped per chunk.
+        boundaries, since generation length is capped per chunk. If a
+        ``cache`` (:class:`~tts_studio.utils.ChunkCache`) is supplied,
+        finished chunks are stored there and resumed runs reuse them
+        instead of regenerating.
         """
         import numpy as np
 
-        if self.ref_audio is None:
-            self._create_anchor()
+        self._ensure_anchor()
 
         chunks = chunk_text(
             text, initial_chunk_size=chunk_size or self.DEFAULT_CHUNK_SIZE
@@ -458,10 +532,20 @@ class BreezeTTSProcessor:
                     int(self.sample_rate * self.CHUNK_PAUSE), dtype=np.float32
                 )
             first = False
+            audio = cache.get(index - 1, text_chunk) if cache else None
+            if audio is not None:
+                if show_progress:
+                    tqdm.write(
+                        f"    breeze: chunk {index}/{len(chunks)} resumed from cache"
+                    )
+                yield text_chunk, audio
+                continue
             pieces = list(self._generate_chunk_audio(text_chunk))
             if pieces:
                 audio = np.concatenate(pieces) if len(pieces) > 1 else pieces[0]
                 audio = self._trim_silence(audio)
+                if cache:
+                    cache.put(index - 1, text_chunk, audio)
                 if show_progress:
                     tqdm.write(
                         f"    breeze: chunk {index}/{len(chunks)} done "
@@ -472,7 +556,9 @@ class BreezeTTSProcessor:
     def _create_anchor(self, quiet=False):
         """Generate one short anchor utterance and adopt it as the voice
         reference for all subsequent chunks, so the voice stays stable
-        across chapters. Skipped (with a warning) if generation fails."""
+        across chapters. The anchor is persisted under ``~/.cache`` so a
+        resumed run keeps the same voice. Skipped (with a warning) if
+        generation fails."""
         import numpy as np
 
         text = self.ANCHOR_SENTENCE
@@ -495,11 +581,23 @@ class BreezeTTSProcessor:
             self.ref_text = None
             return
 
-        import tempfile
+        anchor_wav, anchor_txt = self._anchor_paths()
+        try:
+            anchor_wav.parent.mkdir(parents=True, exist_ok=True)
+            tmp = anchor_wav.with_name(anchor_wav.name + ".tmp")
+            sf.write(
+                str(tmp), audio, self.sample_rate, subtype="PCM_16", format="WAV"
+            )
+            os.replace(tmp, anchor_wav)
+            anchor_txt.write_text(text, encoding="utf-8")
+            anchor_path = str(anchor_wav)
+        except OSError:
+            # Persistent cache unwritable; keep the anchor in a temp dir.
+            import tempfile
 
-        self._anchor_dir = tempfile.TemporaryDirectory(prefix="breeze-anchor-")
-        anchor_path = str(Path(self._anchor_dir.name) / "anchor.wav")
-        sf.write(anchor_path, audio, self.sample_rate, subtype="PCM_16")
+            self._anchor_dir = tempfile.TemporaryDirectory(prefix="breeze-anchor-")
+            anchor_path = str(Path(self._anchor_dir.name) / "anchor.wav")
+            sf.write(anchor_path, audio, self.sample_rate, subtype="PCM_16")
 
         self.ref_audio = anchor_path
         self.ref_text = text
@@ -623,8 +721,34 @@ class BreezeTTSProcessor:
             self._pool.shutdown()
             self._pool = None
 
+    def _cache_namespace(self):
+        """Identity of everything that changes chunk audio, so cached
+        chunks are never reused across different voices or settings."""
+        voice = "none"
+        if self.ref_audio and Path(self.ref_audio).is_file():
+            try:
+                with open(self.ref_audio, "rb") as f:
+                    voice = "ref-" + hashlib.sha1(f.read()).hexdigest()[:12]
+            except OSError:
+                voice = "nofile"
+        parts = [
+            "breeze",
+            self._model_dir,
+            f"cfg={self.cfg_scale}",
+            f"seed={self.seed}",
+            json.dumps(self.sampling, sort_keys=True),
+            f"voice={voice}",
+            f"reftext={self.ref_text or ''}",
+            f"sr={self.sample_rate}",
+        ]
+        if self.instruction:
+            parts.append(f"instr={self.instruction}")
+        return "|".join(parts)
+
     def _save_parallel(self, text, output_path, chunk_size=None):
-        """Generate chunks across worker processes and assemble in order."""
+        """Generate chunks across worker processes and assemble in order.
+        Finished chunks are cached to disk, so a resumed run only
+        regenerates the chunks that were still missing."""
         from concurrent.futures import as_completed
 
         import numpy as np
@@ -632,35 +756,60 @@ class BreezeTTSProcessor:
         chunks = chunk_text(
             text, initial_chunk_size=chunk_size or self.DEFAULT_CHUNK_SIZE
         )
-        pool = self._ensure_pool()
 
         ref_audio, ref_text = self.ref_audio, self.ref_text
+        pool = None
         if not ref_audio:
-            tqdm.write("  🎙  Creating voice anchor for Breeze...")
-            ref_audio, ref_text, self.sample_rate = pool.submit(
-                _breeze_worker_anchor, None
-            ).result()
-            self.ref_audio, self.ref_text = ref_audio, ref_text
-            ref_audio, ref_text = ref_audio or None, ref_text
+            anchor_wav, anchor_txt = self._anchor_paths()
+            if anchor_wav.is_file() and anchor_txt.is_file():
+                self.ref_audio = ref_audio = str(anchor_wav)
+                self.ref_text = ref_text = anchor_txt.read_text(
+                    encoding="utf-8"
+                ).strip()
+                if self.sample_rate is None:
+                    self.sample_rate = int(sf.info(anchor_wav).samplerate)
+                tqdm.write("  🎙  Reusing persisted voice anchor")
+            else:
+                pool = self._ensure_pool()
+                tqdm.write("  🎙  Creating voice anchor for Breeze...")
+                ref_audio, ref_text, self.sample_rate = pool.submit(
+                    _breeze_worker_anchor, None
+                ).result()
+                self.ref_audio, self.ref_text = ref_audio, ref_text
+                ref_audio, ref_text = ref_audio or None, ref_text
 
-        futures = [
-            pool.submit(_breeze_worker_chunk, (i, c, ref_audio, ref_text))
-            for i, c in enumerate(chunks)
-        ]
+        cache = ChunkCache(str(output_path) + ".chunks", self._cache_namespace())
         audios = [None] * len(chunks)
-        for future in as_completed(futures):
-            index, audio, sample_rate = future.result()
-            if self.sample_rate is None:
-                self.sample_rate = sample_rate
-            audios[index] = audio
-            tqdm.write(
-                f"    breeze: chunk {index + 1}/{len(chunks)} done "
-                f"({audio.size / sample_rate:.1f}s audio)"
-            )
+        todo = []
+        for i, chunk in enumerate(chunks):
+            hit = cache.get(i, chunk)
+            if hit is not None:
+                audios[i] = hit
+                tqdm.write(f"    breeze: chunk {i + 1}/{len(chunks)} resumed from cache")
+            else:
+                todo.append((i, chunk))
+
+        if todo:
+            pool = pool or self._ensure_pool()
+            futures = [
+                pool.submit(_breeze_worker_chunk, (i, c, ref_audio, ref_text))
+                for i, c in todo
+            ]
+            for future in as_completed(futures):
+                index, audio, sample_rate = future.result()
+                if self.sample_rate is None:
+                    self.sample_rate = sample_rate
+                audios[index] = audio
+                cache.put(index, chunks[index], audio)
+                tqdm.write(
+                    f"    breeze: chunk {index + 1}/{len(chunks)} done "
+                    f"({audio.size / sample_rate:.1f}s audio)"
+                )
 
         rate = self.sample_rate
+        part_path = str(output_path) + ".part"
         with sf.SoundFile(
-            output_path, "w", samplerate=rate, channels=1, subtype="PCM_16"
+            part_path, "w", samplerate=rate, channels=1, subtype="PCM_16", format="WAV"
         ) as f:
             for index, audio in enumerate(audios):
                 if audio is not None and audio.size:
@@ -669,6 +818,8 @@ class BreezeTTSProcessor:
                         f.write(
                             np.zeros(int(rate * self.CHUNK_PAUSE), dtype=np.float32)
                         )
+        os.replace(part_path, output_path)
+        cache.clear()
 
     def generate_audio(self, text, output_path, speed=1.0):
         """Generate audio using Breeze TTS 2 (speed is not supported; steer
@@ -682,13 +833,28 @@ class BreezeTTSProcessor:
         chunks of roughly that many characters (default 600). With
         ``workers > 1``, chunks are generated in parallel worker processes
         (each holding its own model copy) and assembled in order.
+
+        Every finished chunk is cached next to the output (``<output>
+        .chunks/``) and the final file is written atomically, so a crashed
+        or interrupted run resumes where it left off: complete chapters are
+        skipped, partial chapters regenerate only their missing chunks.
         """
         if self.workers > 1:
             return self._save_parallel(text, output_path, chunk_size=chunk_size)
+        self._ensure_anchor()
+        cache = ChunkCache(str(output_path) + ".chunks", self._cache_namespace())
+        part_path = str(output_path) + ".part"
         with sf.SoundFile(
-            output_path, "w", samplerate=self.sample_rate, channels=1, subtype="PCM_16"
+            part_path,
+            "w",
+            samplerate=self.sample_rate,
+            channels=1,
+            subtype="PCM_16",
+            format="WAV",
         ) as f:
             for _, audio in self.stream_generator(
-                text, speed=speed, chunk_size=chunk_size
+                text, speed=speed, chunk_size=chunk_size, cache=cache
             ):
                 f.write(audio)
+        os.replace(part_path, output_path)
+        cache.clear()

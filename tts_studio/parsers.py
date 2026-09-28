@@ -163,6 +163,39 @@ class PdfParser:
     def __init__(self, pdf_path):
         self.pdf_path = pdf_path
 
+    def _extract_markdown(self, doc):
+        """Layout-aware markdown extraction, page by page behind a single
+        progress bar. Some PDFs contain malformed tables that crash
+        pymupdf's table code (``Rect(t.bbox)`` on a table with no cells);
+        those pages fall back to plain text instead of failing the book."""
+        from tqdm import tqdm
+
+        parts = []
+        fallback_pages = 0
+        with tqdm(
+            total=doc.page_count, desc="  PDF extract", ncols=80, leave=False
+        ) as pbar:
+            for page in doc:
+                try:
+                    parts.append(
+                        pymupdf4llm.to_markdown(
+                            doc,
+                            pages=[page.number],
+                            write_images=False,
+                            show_progress=False,
+                        )
+                    )
+                except Exception:
+                    parts.append(page.get_text("text"))
+                    fallback_pages += 1
+                pbar.update(1)
+        if fallback_pages:
+            tqdm.write(
+                f"  ⚠  {fallback_pages} page(s) extracted as plain text "
+                "(layout analysis failed on them)"
+            )
+        return "\n\n".join(parts)
+
     def get_chapters(self):
         """
         Extract layout-aware text using pymupdf4llm + layout activation.
@@ -171,12 +204,7 @@ class PdfParser:
         doc = fitz.open(self.pdf_path)
 
         # Use layout-aware markdown extraction (handles columns, reading order)
-        md_text = pymupdf4llm.to_markdown(
-            doc,
-            write_images=False,  # Skip images
-            header=False,  # Skip headers
-            footer=False,  # Skip footers
-        )
+        md_text = self._extract_markdown(doc)
         doc.close()
 
         # Split by markdown headers
