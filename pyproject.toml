@@ -32,6 +32,7 @@ dependencies = [
   "tqdm>=4.67.3",
   "mlx-audio==0.5.1",
   "mlx==0.32.2",
+  "mlx-whisper>=0.4.3",
 ]
 
 [tool.uv.sources]

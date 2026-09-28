@@ -227,6 +227,15 @@ class EdgeTTSProcessor:
             self.generate_audio(text, output_path, speed=speed)
 
 
+def transcribe_sample(audio_path, model="mlx-community/whisper-base-mlx"):
+    """Transcribe a voice sample with mlx-whisper (used to auto-fill the
+    reference transcript required for Breeze voice cloning)."""
+    import mlx_whisper
+
+    result = mlx_whisper.transcribe(str(audio_path), path_or_hf_repo=model)
+    return result["text"].strip()
+
+
 class BreezeTTSProcessor:
     """Wrapper around Breeze TTS 2 (mlx-audio + FastDepth) for text-to-speech
     on Apple Silicon.

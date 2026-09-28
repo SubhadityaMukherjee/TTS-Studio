@@ -67,9 +67,9 @@ uv run tts-studio convert INPUT_FILE [OUTPUT_FILE] [OPTIONS]
 - `--stream`: Enable real-time audio streaming
 - `--split-output`: Directory to save individual chapter files instead of one file
 - `--abstract-only`: For PDF files, if you just want to have the audio files for the Abstract, set this flag
-- `--instruction`: (breeze) natural-language voice description for voice design
-- `--cfg-scale`: (breeze) CFG guidance scale for `--instruction` (try 4)
-- `--ref-audio` / `--ref-text`: (breeze) reference audio + its exact transcript for voice cloning
+- `--instruction`: (breeze) natural-language voice description, **or** a path to a sample audio file whose voice gets cloned (transcript auto-transcribed)
+- `--cfg-scale`: (breeze) CFG guidance scale for text `--instruction` (try 4)
+- `--ref-audio` / `--ref-text`: (breeze) alternative way to pass reference audio + its exact transcript
 - `--breeze-model`: (breeze) local checkpoint dir or HF repo id (default: `BREEZE_TTS_MODEL` env var or `rishikksh20/Breeze-TTS-2-mlx`)
 - `--seed`: (breeze) sampling seed (default: 42)
 
@@ -87,10 +87,10 @@ Convert with [Breeze TTS 2](https://huggingface.co/BreezeBlue/Breeze-TTS-2) on A
 uv run tts-studio convert input.txt --engine breeze --instruction "A warm, thoughtful young woman with a calm, reflective delivery" --cfg-scale 4
 ```
 
-Clone a voice from reference audio:
+Clone a voice from a sample recording — `--instruction` also accepts an audio file path; its transcript is auto-transcribed (or pass `--ref-text` with the exact words):
 
 ```bash
-uv run tts-studio convert input.txt --engine breeze --ref-audio reference.wav --ref-text "Exact transcript of the reference audio."
+uv run tts-studio convert input.txt --engine breeze --instruction sample.wav
 ```
 
 Convet multiple research papers but just save their abstracts to a folder
@@ -134,8 +134,8 @@ uv run tts-studio convert input.txt --stream
 
 ## Breeze TTS 2 notes
 
-- Requires an Apple-Silicon Mac and [SoX](https://sox.sourceforge.io/) (`brew install sox`); the official upstream code is CUDA-only
-- The INT8 MLX checkpoint (~3.7 GB) is downloaded automatically on first use
-- **Voice auto-anchoring**: without `--ref-audio`, the first generation creates a short anchor utterance that is then cloned for every subsequent chunk, chapter, and file in the run — giving one stable voice. Use `--instruction` (+ `--cfg-scale 4`) to design the anchor's voice, or `--ref-audio`/`--ref-text` to anchor to a real recording
+- Requires an Apple-Silicon Mac; the official upstream code is CUDA-only
+- Runs via [mlx-audio](https://github.com/Blaizzy/mlx-audio) with a [FastDepth](https://github.com/xzf-thu/BreezeTTS2_Mac_Streaming) depth-decoder optimization (intra-frame KV reuse, ~2-4x faster); 4bit weights (~3 GB) download automatically on first use
+- **Voice auto-anchoring**: with a text `--instruction` (or none at all), the first generation creates a short anchor utterance that is then cloned for every subsequent chunk, chapter, and file in the run — giving one stable voice. Passing a sample audio skips the anchor and clones that voice directly
 - Supports English and Chinese; inline vocal events like `(laugh)`, `(sigh)`, `(cough)` can appear in the text
 - Model weights and self-hosted outputs are licensed for research and non-commercial use only (see the [BreezeBlue license](https://huggingface.co/BreezeBlue/Breeze-TTS-2))

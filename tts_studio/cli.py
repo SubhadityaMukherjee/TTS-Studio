@@ -219,23 +219,26 @@ def process_single_file(
 )
 @click.option(
     "--instruction",
-    help="Breeze only: natural-language voice description, e.g. "
-    "'A warm, thoughtful narrator with a calm delivery'",
+    help="Breeze only: natural-language voice description (e.g. 'A warm, "
+    "thoughtful narrator'), OR a path to a sample audio file to clone that "
+    "voice",
 )
 @click.option(
     "--cfg-scale",
     default=1.0,
     type=float,
-    help="Breeze only: CFG guidance scale for --instruction (try 4)",
+    help="Breeze only: CFG guidance scale for text instructions (try 4)",
 )
 @click.option(
     "--ref-audio",
     type=click.Path(exists=True),
-    help="Breeze only: path to clean reference audio for voice cloning",
+    help="Breeze only: path to clean reference audio for voice cloning "
+    "(alternative to passing a sample path to --instruction)",
 )
 @click.option(
     "--ref-text",
-    help="Breeze only: exact transcript of the reference audio",
+    help="Breeze only: exact transcript of the reference audio "
+    "(auto-transcribed with whisper when omitted)",
 )
 @click.option(
     "--breeze-model",
@@ -273,9 +276,40 @@ def convert(
       tts-studio convert text.txt --engine edge
 
       tts-studio convert text.txt --engine breeze --instruction "A warm, thoughtful young woman with a calm delivery" --cfg-scale 4
+
+      tts-studio convert text.txt --engine breeze --instruction sample.wav
     """
     breeze_opts = None
     if engine == "breeze":
+        # --instruction is polymorphic: a text voice description, or a path
+        # to a sample audio file to clone.
+        sample = Path(instruction).expanduser() if instruction else None
+        if sample and sample.is_file():
+            if ref_audio:
+                raise click.BadParameter(
+                    "pass a sample via --instruction or --ref-audio, not both"
+                )
+            ref_audio = str(sample)
+            instruction = None
+            if not ref_text:
+                click.secho("🎙  Transcribing voice sample with whisper...", fg="cyan")
+                from .processor import transcribe_sample
+
+                try:
+                    ref_text = transcribe_sample(ref_audio)
+                except Exception as e:
+                    raise click.ClickException(
+                        f"could not transcribe {ref_audio} ({e}); "
+                        "pass --ref-text with its exact transcript instead"
+                    )
+                click.secho(f"   Transcript: {ref_text!r}", fg="cyan")
+            duration = sf.info(ref_audio).duration
+            if duration > 30:
+                click.secho(
+                    f"⚠  Voice sample is {duration:.0f}s long; cloning works "
+                    "best with 5-15s of clean speech",
+                    fg="yellow",
+                )
         if (ref_audio is None) != (ref_text is None):
             raise click.BadParameter(
                 "--ref-audio and --ref-text must be provided together"
