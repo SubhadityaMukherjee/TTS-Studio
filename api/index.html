@@ -1,0 +1,1340 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A modular multi-engine text-to-speech CLI (kokoro, edge-tts, Breeze TTS 2)">
+      
+      
+      
+        <link rel="canonical" href="https://subhadityamukherjee.github.io/TTS-Studio/api/">
+      
+      
+        <link rel="prev" href="../engines/">
+      
+      
+        <link rel="next" href="../tts_studio/cli/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.67">
+    
+    
+      
+        <title>Overview - TTS Studio</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.4ae390e2.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.96d1a7e4.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#api-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="./.." title="TTS Studio" class="md-header__button md-logo" aria-label="TTS Studio" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            TTS Studio
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Overview
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/SubhadityaMukherjee/TTS-Studio" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    SubhadityaMukherjee/TTS-Studio
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="./.." title="TTS Studio" class="md-nav__button md-logo" aria-label="TTS Studio" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    TTS Studio
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/SubhadityaMukherjee/TTS-Studio" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    SubhadityaMukherjee/TTS-Studio
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../engines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Engines
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  API Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#tts_studiocli" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>tts_studio.cli</code>
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="tts_studio.cli">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#main" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>main()</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#convert-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>convert</code> command
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#load_chaptersinput_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>load_chapters(input_file)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#process_chapterchapter-voice-speed-lang-split_output-abstract_only-enginekokoro-breeze_processornone" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>process_chapter(chapter, voice, speed, lang, split_output, abstract_only, engine="kokoro", breeze_processor=None)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#process_single_fileinput_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>process_single_file(input_file, ...)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tts_studioparsers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>tts_studio.parsers</code>
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="tts_studio.parsers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epubparserextract_chaptersepub_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>EpubParser.extract_chapters(epub_file)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pdfparserpdf_pathget_chapters" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>PdfParser(pdf_path).get_chapters()</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tts_studioprocessor" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>tts_studio.processor</code>
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="tts_studio.processor">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ttsprocessorlang_codea-sentence_pause025-paragraph_pause06" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>TTSProcessor(lang_code="a", sentence_pause=0.25, paragraph_pause=0.6)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#edgettsprocessorvoiceen-us-avamultilingualneural" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>EdgeTTSProcessor(voice="en-US-AvaMultilingualNeural")</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#breezettsprocessormodelnone-instructionnone-ref_audionone-ref_textnone-cfg_scale10-seed42-temperature09-top_k50-top_p10-depth_modecached-workers1" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>BreezeTTSProcessor(model=None, instruction=None, ref_audio=None, ref_text=None, cfg_scale=1.0, seed=42, temperature=0.9, top_k=50, top_p=1.0, depth_mode="cached", workers=1)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#transcribe_sampleaudio_path-modelmlx-communitywhisper-base-mlx" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>transcribe_sample(audio_path, model="mlx-community/whisper-base-mlx")</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tts_studioutils" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>tts_studio.utils</code>
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="tts_studio.utils">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#normalize_texttext-strip_markdownfalse" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>normalize_text(text, strip_markdown=False)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#split_paragraphstext" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>split_paragraphs(text)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#split_sentencesparagraph" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>split_sentences(paragraph)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chunk_texttext-initial_chunk_size1000" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>chunk_text(text, initial_chunk_size=1000)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chunkcachedirectory-namespace" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ChunkCache(directory, namespace="")</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tts_studiobreeze_fast" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>tts_studio.breeze_fast</code>
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="tts_studio.breeze_fast">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fastdepthmodel-modecached" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>FastDepth(model, mode="cached")</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#auto-generated-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Auto-generated reference
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tts_studio/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  CLI
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tts_studio/parsers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Parsers
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tts_studio/processor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Processor
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tts_studio/utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Utils
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tts_studio/breeze_fast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Breeze backend
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#tts_studiocli" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>tts_studio.cli</code>
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="tts_studio.cli">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#main" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>main()</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#convert-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>convert</code> command
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#load_chaptersinput_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>load_chapters(input_file)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#process_chapterchapter-voice-speed-lang-split_output-abstract_only-enginekokoro-breeze_processornone" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>process_chapter(chapter, voice, speed, lang, split_output, abstract_only, engine="kokoro", breeze_processor=None)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#process_single_fileinput_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>process_single_file(input_file, ...)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tts_studioparsers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>tts_studio.parsers</code>
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="tts_studio.parsers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#epubparserextract_chaptersepub_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>EpubParser.extract_chapters(epub_file)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pdfparserpdf_pathget_chapters" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>PdfParser(pdf_path).get_chapters()</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tts_studioprocessor" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>tts_studio.processor</code>
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="tts_studio.processor">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ttsprocessorlang_codea-sentence_pause025-paragraph_pause06" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>TTSProcessor(lang_code="a", sentence_pause=0.25, paragraph_pause=0.6)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#edgettsprocessorvoiceen-us-avamultilingualneural" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>EdgeTTSProcessor(voice="en-US-AvaMultilingualNeural")</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#breezettsprocessormodelnone-instructionnone-ref_audionone-ref_textnone-cfg_scale10-seed42-temperature09-top_k50-top_p10-depth_modecached-workers1" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>BreezeTTSProcessor(model=None, instruction=None, ref_audio=None, ref_text=None, cfg_scale=1.0, seed=42, temperature=0.9, top_k=50, top_p=1.0, depth_mode="cached", workers=1)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#transcribe_sampleaudio_path-modelmlx-communitywhisper-base-mlx" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>transcribe_sample(audio_path, model="mlx-community/whisper-base-mlx")</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tts_studioutils" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>tts_studio.utils</code>
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="tts_studio.utils">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#normalize_texttext-strip_markdownfalse" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>normalize_text(text, strip_markdown=False)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#split_paragraphstext" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>split_paragraphs(text)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#split_sentencesparagraph" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>split_sentences(paragraph)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chunk_texttext-initial_chunk_size1000" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>chunk_text(text, initial_chunk_size=1000)</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chunkcachedirectory-namespace" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ChunkCache(directory, namespace="")</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tts_studiobreeze_fast" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>tts_studio.breeze_fast</code>
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="tts_studio.breeze_fast">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fastdepthmodel-modecached" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>FastDepth(model, mode="cached")</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#auto-generated-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Auto-generated reference
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="api-reference">API Reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h1>
+<p>TTS-Studio is a plain Python package — every part of the CLI is usable as a library. The public surface is small and stable:</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Provides</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tts_studio.cli</code></td>
+<td>Click command group, file/chapter orchestration</td>
+</tr>
+<tr>
+<td><code>tts_studio.parsers</code></td>
+<td><code>EpubParser</code>, <code>PdfParser</code> — input extraction</td>
+</tr>
+<tr>
+<td><code>tts_studio.processor</code></td>
+<td>The three engine processors + <code>transcribe_sample</code></td>
+</tr>
+<tr>
+<td><code>tts_studio.utils</code></td>
+<td>Text normalization/splitting, <code>ChunkCache</code></td>
+</tr>
+<tr>
+<td><code>tts_studio.breeze_fast</code></td>
+<td><code>FastDepth</code> — MLX depth-decoder optimization for Breeze</td>
+</tr>
+</tbody>
+</table>
+<p>Full auto-generated docs (from docstrings) are linked at the bottom of this page. The engine processors are only importable when the matching extra is installed (<code>uv sync --extra kokoro</code> / <code>--extra breeze</code>); <code>cli</code>, <code>parsers</code>, and <code>utils</code> work with the core install.</p>
+<h2 id="tts_studiocli"><code>tts_studio.cli</code><a class="headerlink" href="#tts_studiocli" title="Permanent link">&para;</a></h2>
+<h3 id="main"><code>main()</code><a class="headerlink" href="#main" title="Permanent link">&para;</a></h3>
+<p>Click group exposed as the <code>tts-studio</code> console script. Subcommand: <code>convert</code>.</p>
+<h3 id="convert-command"><code>convert</code> command<a class="headerlink" href="#convert-command" title="Permanent link">&para;</a></h3>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code>tts-studio convert INPUT_FILES... [OPTIONS]
+</code></pre></div></td></tr></table></div>
+<p>Accepts one or more input files (<code>.txt</code>, <code>.epub</code>, <code>.pdf</code>, or <code>-</code> for stdin). Key options: <code>--engine {kokoro,edge,breeze}</code>, <code>--voice</code>, <code>--speed</code>, <code>--lang</code>, <code>--stream</code>, <code>--split-output DIR</code>, <code>--abstract-only</code>, plus the breeze-only options (<code>--instruction</code>, <code>--cfg-scale</code>, <code>--ref-audio</code>/<code>--ref-text</code>, <code>--breeze-model</code>, <code>--seed</code>, <code>--breeze-workers</code>, <code>--breeze-depth-mode</code>).</p>
+<h3 id="load_chaptersinput_file"><code>load_chapters(input_file)</code><a class="headerlink" href="#load_chaptersinput_file" title="Permanent link">&para;</a></h3>
+<p>Load a single input file into chapter dicts. Dispatches by extension: <code>.epub</code> → <code>EpubParser.extract_chapters</code>, <code>.pdf</code> → <code>PdfParser.get_chapters</code>, anything else is read as text (a non-existent path is treated as raw text content). Returns a list of <code>{"title": str, "content": str, "order": int}</code>.</p>
+<h3 id="process_chapterchapter-voice-speed-lang-split_output-abstract_only-enginekokoro-breeze_processornone"><code>process_chapter(chapter, voice, speed, lang, split_output, abstract_only, engine="kokoro", breeze_processor=None)</code><a class="headerlink" href="#process_chapterchapter-voice-speed-lang-split_output-abstract_only-enginekokoro-breeze_processornone" title="Permanent link">&para;</a></h3>
+<p>Convert one chapter dict to <code>NN_Safe_Title.wav</code> (<code>.mp3</code> for edge) inside <code>split_output</code>. Returns <code>(out_file, status)</code> where status is <code>"completed"</code> or <code>"skipped"</code> (output exists, or <code>abstract_only</code> set and the title has no "abstract"). With <code>--abstract-only</code>, chapters whose titles don't contain "abstract" are skipped.</p>
+<h3 id="process_single_fileinput_file"><code>process_single_file(input_file, ...)</code><a class="headerlink" href="#process_single_fileinput_file" title="Permanent link">&para;</a></h3>
+<p>Processes all chapters of one file: parallel <code>ProcessPoolExecutor</code> (up to 4 workers) for kokoro/edge; serial with one shared <code>breeze_processor</code> for breeze. Returns the number of skipped chapters.</p>
+<h2 id="tts_studioparsers"><code>tts_studio.parsers</code><a class="headerlink" href="#tts_studioparsers" title="Permanent link">&para;</a></h2>
+<h3 id="epubparserextract_chaptersepub_file"><code>EpubParser.extract_chapters(epub_file)</code><a class="headerlink" href="#epubparserextract_chaptersepub_file" title="Permanent link">&para;</a></h3>
+<p>Static method. Reads an EPUB in spine order and extracts chapters with layered fallback parsing: <code>&lt;p&gt;</code> tags → block-level containers → newline splitting. Words split across inline tags stay joined (<code>well-&lt;span&gt;known&lt;/span&gt;</code> → <code>well-known</code>). If a single large chapter is found, it retries splitting by headings (<code>h1</code>–<code>h3</code>). Returns chapter dicts with <code>title</code>, <code>content</code>, <code>sentences</code>, <code>order</code>.</p>
+<h3 id="pdfparserpdf_pathget_chapters"><code>PdfParser(pdf_path).get_chapters()</code><a class="headerlink" href="#pdfparserpdf_pathget_chapters" title="Permanent link">&para;</a></h3>
+<p>Layout-aware extraction via <code>pymupdf4llm</code> (page by page, falling back to plain text for malformed pages), split into chapters on markdown headers, with normalized paragraphs and sentences. Falls back to raw page text if section splitting yields nothing. Returns chapter dicts with <code>title</code> (truncated to 100 chars), <code>content</code>, <code>paragraphs</code>, <code>sentences</code>, <code>order</code>.</p>
+<h2 id="tts_studioprocessor"><code>tts_studio.processor</code><a class="headerlink" href="#tts_studioprocessor" title="Permanent link">&para;</a></h2>
+<h3 id="ttsprocessorlang_codea-sentence_pause025-paragraph_pause06"><code>TTSProcessor(lang_code="a", sentence_pause=0.25, paragraph_pause=0.6)</code><a class="headerlink" href="#ttsprocessorlang_codea-sentence_pause025-paragraph_pause06" title="Permanent link">&para;</a></h3>
+<p>Kokoro-82M wrapper with device management (MPS → CUDA → CPU, plus MPS memory fraction via <code>TORCH_MPS_MEMORY_FRACTION</code>) and cache clearing after each chunk.</p>
+<ul>
+<li><code>generate_audio(text, voice="af_heart", speed=1.0)</code> — generator yielding <code>(gs, ps, audio)</code> from the Kokoro pipeline.</li>
+<li><code>stream_generator(text, voice="af_heart", speed=1.0, cache=None)</code> — generator yielding <code>(sentence, audio)</code>, stitching silence between sentences/paragraphs. With a <code>ChunkCache</code>, finished sentences are stored and reused on resume.</li>
+<li><code>save(text, output_path, voice="af_heart", speed=1.0, chunk_size=None)</code> — writes 24 kHz mono WAV via a <code>.part</code> atomic rename; the sentence cache lives under <code>&lt;output&gt;.chunks/</code>.</li>
+</ul>
+<h3 id="edgettsprocessorvoiceen-us-avamultilingualneural"><code>EdgeTTSProcessor(voice="en-US-AvaMultilingualNeural")</code><a class="headerlink" href="#edgettsprocessorvoiceen-us-avamultilingualneural" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>generate_audio(text, output_path, speed=1.0)</code> — synthesizes to file (rate is derived from <code>speed</code>).</li>
+<li><code>stream_generator(text, voice=None, speed=1.0)</code> — yields the whole text at once (edge-tts has no streaming).</li>
+<li><code>save(text, output_path, voice=None, speed=1.0, chunk_size=None)</code> — writes MP3 atomically; with <code>chunk_size</code>, splits and concatenates.</li>
+</ul>
+<h3 id="breezettsprocessormodelnone-instructionnone-ref_audionone-ref_textnone-cfg_scale10-seed42-temperature09-top_k50-top_p10-depth_modecached-workers1"><code>BreezeTTSProcessor(model=None, instruction=None, ref_audio=None, ref_text=None, cfg_scale=1.0, seed=42, temperature=0.9, top_k=50, top_p=1.0, depth_mode="cached", workers=1)</code><a class="headerlink" href="#breezettsprocessormodelnone-instructionnone-ref_audionone-ref_textnone-cfg_scale10-seed42-temperature09-top_k50-top_p10-depth_modecached-workers1" title="Permanent link">&para;</a></h3>
+<p>Breeze TTS 2 on Apple Silicon (MLX). <code>model</code> accepts a local checkpoint dir, an HF repo id, or the <code>BREEZE_TTS_MODEL</code> env var (default <code>mlx-community/Breeze-TTS-2-mlx-4bit</code>, ~3 GB, resolved offline-first from the HF cache). Voice modes: <code>instruction</code> only (voice design, try <code>cfg_scale=4</code>), <code>ref_audio</code> + <code>ref_text</code> (clone), or all three (clone + steer). Without a reference, the first generation creates a persisted voice anchor under <code>~/.cache/tts-studio/anchors/</code> that stabilizes the voice across chunks, chapters, and runs.</p>
+<ul>
+<li><code>stream_generator(text, voice=None, speed=1.0, chunk_size=None, cache=None)</code> — yields <code>(chunk, audio)</code> split at sentence boundaries (~600 chars per chunk by default), with trailing-silence trimming and resumable chunks.</li>
+<li><code>save(text, output_path, voice=None, speed=1.0, chunk_size=None)</code> — writes WAV atomically; with <code>workers &gt; 1</code>, chunks are generated in parallel spawn-processes (one model copy each) and assembled in order.</li>
+<li><code>generate_audio(text, output_path, speed=1.0)</code> — alias of <code>save</code> (speed is not supported; steer pace via the instruction).</li>
+<li><code>close()</code> — shut down the worker pool.</li>
+</ul>
+<h3 id="transcribe_sampleaudio_path-modelmlx-communitywhisper-base-mlx"><code>transcribe_sample(audio_path, model="mlx-community/whisper-base-mlx")</code><a class="headerlink" href="#transcribe_sampleaudio_path-modelmlx-communitywhisper-base-mlx" title="Permanent link">&para;</a></h3>
+<p>Transcribes a voice sample with mlx-whisper (used to auto-fill <code>ref_text</code> for cloning).</p>
+<h2 id="tts_studioutils"><code>tts_studio.utils</code><a class="headerlink" href="#tts_studioutils" title="Permanent link">&para;</a></h2>
+<h3 id="normalize_texttext-strip_markdownfalse"><code>normalize_text(text, strip_markdown=False)</code><a class="headerlink" href="#normalize_texttext-strip_markdownfalse" title="Permanent link">&para;</a></h3>
+<p>Normalizes text for TTS: removes soft hyphens, rejoins hyphen-broken words across line breaks and markup boundaries, collapses whitespace while keeping paragraph breaks, and optionally strips markdown (links, bold, italic, code).</p>
+<h3 id="split_paragraphstext"><code>split_paragraphs(text)</code><a class="headerlink" href="#split_paragraphstext" title="Permanent link">&para;</a></h3>
+<p>Splits into paragraphs on blank lines, folding soft line-wraps inside each paragraph.</p>
+<h3 id="split_sentencesparagraph"><code>split_sentences(paragraph)</code><a class="headerlink" href="#split_sentencesparagraph" title="Permanent link">&para;</a></h3>
+<p>Sentence-splits with nltk punkt, then merges fragments that punkt mis-splits on abbreviations ("Mr.", "etc.") and unterminated segments so the TTS doesn't pause mid-thought.</p>
+<h3 id="chunk_texttext-initial_chunk_size1000"><code>chunk_text(text, initial_chunk_size=1000)</code><a class="headerlink" href="#chunk_texttext-initial_chunk_size1000" title="Permanent link">&para;</a></h3>
+<p>Splits text into chunks at sentence boundaries of roughly <code>initial_chunk_size</code> characters.</p>
+<h3 id="chunkcachedirectory-namespace"><code>ChunkCache(directory, namespace="")</code><a class="headerlink" href="#chunkcachedirectory-namespace" title="Permanent link">&para;</a></h3>
+<p>Disk cache of per-chunk audio (<code>.npy</code> files keyed by namespace, index, and text hash) enabling resume after a crash. Writes are atomic; I/O failures are silently ignored.</p>
+<ul>
+<li><code>get(index, text)</code> — cached audio array or <code>None</code>.</li>
+<li><code>put(index, text, audio)</code> — atomically cache audio (best-effort).</li>
+<li><code>clear()</code> — remove the cache directory once the final output exists.</li>
+</ul>
+<h2 id="tts_studiobreeze_fast"><code>tts_studio.breeze_fast</code><a class="headerlink" href="#tts_studiobreeze_fast" title="Permanent link">&para;</a></h2>
+<h3 id="fastdepthmodel-modecached"><code>FastDepth(model, mode="cached")</code><a class="headerlink" href="#fastdepthmodel-modecached" title="Permanent link">&para;</a></h3>
+<p>Patches the Breeze TTS 2 depth decoder's attention with intra-frame KV reuse (<code>FrameKVCache</code>), deferring host reads to the end of each frame — a ~2-4x speedup over the upstream mlx-audio implementation. <code>mode</code> is <code>"cached"</code> or <code>"compiled"</code>; call <code>install()</code> to activate on a loaded model (done automatically by <code>BreezeTTSProcessor</code>).</p>
+<h2 id="auto-generated-reference">Auto-generated reference<a class="headerlink" href="#auto-generated-reference" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../tts_studio/cli/">CLI</a> — <code>tts_studio.cli</code></li>
+<li><a href="../tts_studio/parsers/">Parsers</a> — <code>tts_studio.parsers</code></li>
+<li><a href="../tts_studio/processor/">Processor</a> — <code>tts_studio.processor</code></li>
+<li><a href="../tts_studio/utils/">Utils</a> — <code>tts_studio.utils</code></li>
+<li><a href="../tts_studio/breeze_fast/">Breeze backend</a> — <code>tts_studio.breeze_fast</code></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["content.code.copy"],"redirect":null,"search":"../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.67a597eb.min.js"></script>
+      
+    
+  </body>
+</html>
