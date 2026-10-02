@@ -8,6 +8,7 @@ nav:
   - Home: index.md
   - Engines: engines.md
   - API Reference:
+      - Overview: api.md
       - CLI: tts_studio/cli.md
       - Parsers: tts_studio/parsers.md
       - Processor: tts_studio/processor.md

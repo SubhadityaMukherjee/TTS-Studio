@@ -2,6 +2,13 @@
 
 [![tests](https://github.com/SubhadityaMukherjee/TTS-Studio/actions/workflows/python-package.yml/badge.svg)](https://github.com/SubhadityaMukherjee/TTS-Studio/actions/workflows/python-package.yml)
 
+> [!IMPORTANT]
+> **Copyright notice — read this before using TTS-Studio.**
+>
+> This tool converts text (including copyrighted books, articles, and papers) into audio **for your own personal use only**. The author of TTS-Studio holds **no responsibility** for how it is used, and specifically for its use on copyrighted works.
+>
+> You are **not legally allowed to distribute** any audio you generate with TTS-Studio unless you hold the rights or a license to the underlying text (and, where applicable, to the cloned voice). This includes uploading, sharing, selling, or publishing generated audio. Respect the licenses of the works you convert, and the licenses of the models you run (e.g. Breeze TTS 2 is research / non-commercial only).
+
 A modular, multi-engine text-to-speech CLI. Turn text, EPUB, and PDF files (or stdin) into audiobooks using one of three interchangeable engines:
 
 | Engine | Backend | Best for | Requirements |
@@ -189,4 +196,4 @@ The docs are built with [Zensical](https://zensical.org) and deployed to GitHub 
 
 ## License
 
-The code in this repository is MIT-licensed. Breeze TTS 2 model weights carry their own (research / non-commercial) license — see above.
+The code in this repository is MIT-licensed. Breeze TTS 2 model weights carry their own (research / non-commercial) license — see above. The author assumes no responsibility for copyrighted material processed with this tool; generated audio may not be distributed without the necessary rights or licenses (see the notice at the top).
