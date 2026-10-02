@@ -6,10 +6,14 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
+        <meta name="description" content="A modular multi-engine text-to-speech CLI (kokoro, edge-tts, Breeze TTS 2)">
       
       
       
-        <link rel="prev" href="../..">
+        <link rel="canonical" href="https://subhadityamukherjee.github.io/TTS-Studio/tts_studio/cli/">
+      
+      
+        <link rel="prev" href="../../engines/">
       
       
         <link rel="next" href="../parsers/">
@@ -19,18 +23,23 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="zensical-0.0.67">
     
     
       
-        <title>Cli - TTS Studio</title>
+        <title>CLI - TTS Studio</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.4ae390e2.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.96d1a7e4.min.css">
       
       
 
@@ -44,14 +53,12 @@
         
         
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
-        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
       
     
     
-      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
-    
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
 
@@ -72,7 +79,7 @@
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
-    <label class="md-overlay" for="__drawer"></label>
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
     <div data-md-component="skip">
       
         
@@ -95,12 +102,12 @@
     <a href="../.." title="TTS Studio" class="md-header__button md-logo" aria-label="TTS Studio" data-md-component="logo">
       
   
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
 
     </a>
-    <label class="md-header__button md-icon" for="__drawer">
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
       
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
     </label>
     <div class="md-header__title" data-md-component="header-title">
       <div class="md-header__ellipsis">
@@ -112,7 +119,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Cli
+              CLI
             
           </span>
         </div>
@@ -152,45 +159,30 @@
     
       
       
-        <label class="md-header__button md-icon" for="__search">
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
           
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
         </label>
-        <div class="md-search" data-md-component="search" role="dialog">
-  <label class="md-search__overlay" for="__search"></label>
-  <div class="md-search__inner" role="search">
-    <form class="md-search__form" name="search">
-      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
-      <label class="md-search__icon md-icon" for="__search">
-        
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
-        
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
-      </label>
-      <nav class="md-search__options" aria-label="Search">
-        
-        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
-          
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-        </button>
-      </nav>
-      
-    </form>
-    <div class="md-search__output">
-      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
-        <div class="md-search-result" data-md-component="search-result">
-          <div class="md-search-result__meta">
-            Initializing search
-          </div>
-          <ol class="md-search-result__list" role="presentation"></ol>
-        </div>
-      </div>
-    </div>
-  </div>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
 </div>
       
     
+    <div class="md-header__source">
+      
+        <a href="https://github.com/SubhadityaMukherjee/TTS-Studio" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
     
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    SubhadityaMukherjee/TTS-Studio
+  </div>
+</a>
+      
+    </div>
   </nav>
   
 </header>
@@ -219,11 +211,23 @@
     <a href="../.." title="TTS Studio" class="md-nav__button md-logo" aria-label="TTS Studio" data-md-component="logo">
       
   
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
 
     </a>
     TTS Studio
   </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/SubhadityaMukherjee/TTS-Studio" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    SubhadityaMukherjee/TTS-Studio
+  </div>
+</a>
+    </div>
   
   <ul class="md-nav__list" data-md-scrollfix>
     
@@ -241,8 +245,33 @@
   <span class="md-ellipsis">
     
   
-    TTS-Studio
+  Home
+
+    
+  </span>
   
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../engines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Engines
 
     
   </span>
@@ -271,18 +300,17 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
     
   
-    Tts studio
-  
+  API Reference
 
     
   </span>
@@ -292,19 +320,19 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_2">
-            <span class="md-nav__icon md-icon"></span>
-            
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
   
-    Tts studio
-  
+  API Reference
 
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+                  
   
   
     
@@ -313,7 +341,7 @@
   
     <li class="md-nav__item md-nav__item--active">
       
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
       
       
       
@@ -324,8 +352,7 @@
   <span class="md-ellipsis">
     
   
-    Cli
-  
+  CLI
 
     
   </span>
@@ -335,15 +362,14 @@
           <span class="md-nav__icon md-icon"></span>
         </label>
       
-      <a href="./" class="md-nav__link md-nav__link--active">
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
   <span class="md-ellipsis">
     
   
-    Cli
-  
+  CLI
 
     
   </span>
@@ -354,23 +380,24 @@
       
         
 
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
   
   
   
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
-      Table of contents
+      On this page
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
   <a href="#tts_studio.cli" class="md-nav__link">
     <span class="md-ellipsis">
-      
+      <span class="md-typeset">
         cli
-      
+      </span>
     </span>
   </a>
   
@@ -379,9 +406,9 @@
         <li class="md-nav__item">
   <a href="#tts_studio.cli.convert" class="md-nav__link">
     <span class="md-ellipsis">
-      
+      <span class="md-typeset">
         convert
-      
+      </span>
     </span>
   </a>
   
@@ -390,9 +417,9 @@
         <li class="md-nav__item">
   <a href="#tts_studio.cli.load_chapters" class="md-nav__link">
     <span class="md-ellipsis">
-      
+      <span class="md-typeset">
         load_chapters
-      
+      </span>
     </span>
   </a>
   
@@ -401,9 +428,9 @@
         <li class="md-nav__item">
   <a href="#tts_studio.cli.main" class="md-nav__link">
     <span class="md-ellipsis">
-      
+      <span class="md-typeset">
         main
-      
+      </span>
     </span>
   </a>
   
@@ -412,9 +439,9 @@
         <li class="md-nav__item">
   <a href="#tts_studio.cli.process_chapter" class="md-nav__link">
     <span class="md-ellipsis">
-      
+      <span class="md-typeset">
         process_chapter
-      
+      </span>
     </span>
   </a>
   
@@ -423,9 +450,9 @@
         <li class="md-nav__item">
   <a href="#tts_studio.cli.process_single_file" class="md-nav__link">
     <span class="md-ellipsis">
-      
+      <span class="md-typeset">
         process_single_file
-      
+      </span>
     </span>
   </a>
   
@@ -438,10 +465,10 @@
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -454,8 +481,7 @@
   <span class="md-ellipsis">
     
   
-    Parsers
-  
+  Parsers
 
     
   </span>
@@ -466,10 +492,10 @@
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -482,8 +508,7 @@
   <span class="md-ellipsis">
     
   
-    Processor
-  
+  Processor
 
     
   </span>
@@ -494,10 +519,10 @@
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -510,8 +535,7 @@
   <span class="md-ellipsis">
     
   
-    Utils
-  
+  Utils
 
     
   </span>
@@ -522,10 +546,38 @@
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../breeze_fast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Breeze backend
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
       
     </li>
   
@@ -541,26 +593,38 @@
               
               <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
                 <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
                   <div class="md-sidebar__inner">
                     
 
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
   
   
   
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
-      Table of contents
+      On this page
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
   <a href="#tts_studio.cli" class="md-nav__link">
     <span class="md-ellipsis">
-      
+      <span class="md-typeset">
         cli
-      
+      </span>
     </span>
   </a>
   
@@ -569,9 +633,9 @@
         <li class="md-nav__item">
   <a href="#tts_studio.cli.convert" class="md-nav__link">
     <span class="md-ellipsis">
-      
+      <span class="md-typeset">
         convert
-      
+      </span>
     </span>
   </a>
   
@@ -580,9 +644,9 @@
         <li class="md-nav__item">
   <a href="#tts_studio.cli.load_chapters" class="md-nav__link">
     <span class="md-ellipsis">
-      
+      <span class="md-typeset">
         load_chapters
-      
+      </span>
     </span>
   </a>
   
@@ -591,9 +655,9 @@
         <li class="md-nav__item">
   <a href="#tts_studio.cli.main" class="md-nav__link">
     <span class="md-ellipsis">
-      
+      <span class="md-typeset">
         main
-      
+      </span>
     </span>
   </a>
   
@@ -602,9 +666,9 @@
         <li class="md-nav__item">
   <a href="#tts_studio.cli.process_chapter" class="md-nav__link">
     <span class="md-ellipsis">
-      
+      <span class="md-typeset">
         process_chapter
-      
+      </span>
     </span>
   </a>
   
@@ -613,9 +677,9 @@
         <li class="md-nav__item">
   <a href="#tts_studio.cli.process_single_file" class="md-nav__link">
     <span class="md-ellipsis">
-      
+      <span class="md-typeset">
         process_single_file
-      
+      </span>
     </span>
   </a>
   
@@ -636,9 +700,11 @@
                 
                   
 
+  
+  
 
 
-  <h1>Cli</h1>
+  <h1 id="__skip">CLI</h1>
 
 <div class="doc doc-object doc-module">
 
@@ -691,17 +757,7 @@ Each file's chapters are processed in parallel; files are queued one after anoth
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>tts_studio/cli.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">213</span>
-<span class="normal">214</span>
-<span class="normal">215</span>
-<span class="normal">216</span>
-<span class="normal">217</span>
-<span class="normal">218</span>
-<span class="normal">219</span>
-<span class="normal">220</span>
-<span class="normal">221</span>
-<span class="normal">222</span>
-<span class="normal">223</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">223</span>
 <span class="normal">224</span>
 <span class="normal">225</span>
 <span class="normal">226</span>
@@ -891,7 +947,19 @@ Each file's chapters are processed in parallel; files are queued one after anoth
 <span class="normal">410</span>
 <span class="normal">411</span>
 <span class="normal">412</span>
-<span class="normal">413</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@main</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="normal">413</span>
+<span class="normal">414</span>
+<span class="normal">415</span>
+<span class="normal">416</span>
+<span class="normal">417</span>
+<span class="normal">418</span>
+<span class="normal">419</span>
+<span class="normal">420</span>
+<span class="normal">421</span>
+<span class="normal">422</span>
+<span class="normal">423</span>
+<span class="normal">424</span>
+<span class="normal">425</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@main</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
 <span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s2">"input_files"</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">"--voice"</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">"af_heart"</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Voice ID"</span><span class="p">)</span>
 <span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">"--speed"</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">"Speech speed"</span><span class="p">)</span>
@@ -1036,6 +1104,8 @@ Each file's chapters are processed in parallel; files are queued one after anoth
         <span class="p">)</span>
         <span class="c1"># Load the runtime once for the whole queue so the auto-created</span>
         <span class="c1"># voice anchor carries across every file and chapter.</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">BreezeTTSProcessor</span>
+
         <span class="n">breeze_processor</span> <span class="o">=</span> <span class="n">BreezeTTSProcessor</span><span class="p">(</span><span class="o">**</span><span class="n">breeze_opts</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">breeze_processor</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1114,20 +1184,20 @@ Each file's chapters are processed in parallel; files are queued one after anoth
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>tts_studio/cli.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 88</span>
-<span class="normal"> 89</span>
-<span class="normal"> 90</span>
-<span class="normal"> 91</span>
-<span class="normal"> 92</span>
-<span class="normal"> 93</span>
-<span class="normal"> 94</span>
-<span class="normal"> 95</span>
-<span class="normal"> 96</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 96</span>
 <span class="normal"> 97</span>
 <span class="normal"> 98</span>
 <span class="normal"> 99</span>
 <span class="normal">100</span>
-<span class="normal">101</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load_chapters</span><span class="p">(</span><span class="n">input_file</span><span class="p">):</span>
+<span class="normal">101</span>
+<span class="normal">102</span>
+<span class="normal">103</span>
+<span class="normal">104</span>
+<span class="normal">105</span>
+<span class="normal">106</span>
+<span class="normal">107</span>
+<span class="normal">108</span>
+<span class="normal">109</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load_chapters</span><span class="p">(</span><span class="n">input_file</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Load chapters from a single input file."""</span>
     <span class="k">if</span> <span class="n">input_file</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">".epub"</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">EpubParser</span><span class="o">.</span><span class="n">extract_chapters</span><span class="p">(</span><span class="n">input_file</span><span class="p">)</span>
@@ -1158,17 +1228,17 @@ Each file's chapters are processed in parallel; files are queued one after anoth
 
     <div class="doc doc-contents ">
 
-        <p>Kokoro TTS: A high-quality text-to-speech CLI.</p>
+        <p>TTS Studio: a multi-engine text-to-speech CLI (kokoro, edge, breeze).</p>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>tts_studio/cli.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">17</span>
-<span class="normal">18</span>
-<span class="normal">19</span>
-<span class="normal">20</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@click</span><span class="o">.</span><span class="n">group</span><span class="p">()</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span>
+<span class="normal">23</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@click</span><span class="o">.</span><span class="n">group</span><span class="p">()</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-<span class="w">    </span><span class="sd">"""Kokoro TTS: A high-quality text-to-speech CLI."""</span>
+<span class="w">    </span><span class="sd">"""TTS Studio: a multi-engine text-to-speech CLI (kokoro, edge, breeze)."""</span>
     <span class="k">pass</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -1192,10 +1262,7 @@ Each file's chapters are processed in parallel; files are queued one after anoth
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>tts_studio/cli.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">23</span>
-<span class="normal">24</span>
-<span class="normal">25</span>
-<span class="normal">26</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">26</span>
 <span class="normal">27</span>
 <span class="normal">28</span>
 <span class="normal">29</span>
@@ -1254,7 +1321,15 @@ Each file's chapters are processed in parallel; files are queued one after anoth
 <span class="normal">82</span>
 <span class="normal">83</span>
 <span class="normal">84</span>
-<span class="normal">85</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">process_chapter</span><span class="p">(</span>
+<span class="normal">85</span>
+<span class="normal">86</span>
+<span class="normal">87</span>
+<span class="normal">88</span>
+<span class="normal">89</span>
+<span class="normal">90</span>
+<span class="normal">91</span>
+<span class="normal">92</span>
+<span class="normal">93</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">process_chapter</span><span class="p">(</span>
     <span class="n">chapter</span><span class="p">,</span>
     <span class="n">voice</span><span class="p">,</span>
     <span class="n">speed</span><span class="p">,</span>
@@ -1265,7 +1340,6 @@ Each file's chapters are processed in parallel; files are queued one after anoth
     <span class="n">breeze_processor</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Run in a separate process for TTS conversion."""</span>
-
     <span class="c1"># --- Safe filename formatting ---</span>
     <span class="n">safe_title</span> <span class="o">=</span> <span class="n">chapter</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"title"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"Chapter_</span><span class="si">{</span><span class="n">chapter</span><span class="p">[</span><span class="s1">'order'</span><span class="p">]</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">abstract_only</span> <span class="ow">and</span> <span class="s2">"abstract"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">safe_title</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
@@ -1286,6 +1360,8 @@ Each file's chapters are processed in parallel; files are queued one after anoth
         <span class="k">return</span> <span class="n">out_file</span><span class="p">,</span> <span class="s2">"skipped"</span>
 
     <span class="k">if</span> <span class="n">engine</span> <span class="o">==</span> <span class="s2">"edge"</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">EdgeTTSProcessor</span>
+
         <span class="n">processor</span> <span class="o">=</span> <span class="n">EdgeTTSProcessor</span><span class="p">(</span><span class="n">voice</span><span class="o">=</span><span class="n">voice</span><span class="p">)</span>
         <span class="n">processor</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">chapter</span><span class="p">[</span><span class="s2">"content"</span><span class="p">],</span> <span class="n">out_file</span><span class="p">,</span> <span class="n">voice</span><span class="o">=</span><span class="n">voice</span><span class="p">,</span> <span class="n">speed</span><span class="o">=</span><span class="n">speed</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">engine</span> <span class="o">==</span> <span class="s2">"breeze"</span><span class="p">:</span>
@@ -1293,9 +1369,13 @@ Each file's chapters are processed in parallel; files are queued one after anoth
         <span class="c1"># process; callers pass a shared processor and run chapters serially.</span>
         <span class="c1"># save() itself resumes: finished chunks are cached under</span>
         <span class="c1"># &lt;out_file&gt;.chunks/ and the final write is atomic.</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">BreezeTTSProcessor</span>
+
         <span class="n">processor</span> <span class="o">=</span> <span class="n">breeze_processor</span> <span class="ow">or</span> <span class="n">BreezeTTSProcessor</span><span class="p">()</span>
         <span class="n">processor</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">chapter</span><span class="p">[</span><span class="s2">"content"</span><span class="p">],</span> <span class="n">out_file</span><span class="p">,</span> <span class="n">speed</span><span class="o">=</span><span class="n">speed</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">TTSProcessor</span>
+
         <span class="n">processor</span> <span class="o">=</span> <span class="n">TTSProcessor</span><span class="p">(</span><span class="n">lang_code</span><span class="o">=</span><span class="n">lang</span><span class="p">)</span>
 
         <span class="c1"># Process with progress-aware streaming; cache finished sentences</span>
@@ -1339,15 +1419,7 @@ Each file's chapters are processed in parallel; files are queued one after anoth
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>tts_studio/cli.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">114</span>
-<span class="normal">115</span>
-<span class="normal">116</span>
-<span class="normal">117</span>
-<span class="normal">118</span>
-<span class="normal">119</span>
-<span class="normal">120</span>
-<span class="normal">121</span>
-<span class="normal">122</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">122</span>
 <span class="normal">123</span>
 <span class="normal">124</span>
 <span class="normal">125</span>
@@ -1435,7 +1507,17 @@ Each file's chapters are processed in parallel; files are queued one after anoth
 <span class="normal">207</span>
 <span class="normal">208</span>
 <span class="normal">209</span>
-<span class="normal">210</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">process_single_file</span><span class="p">(</span>
+<span class="normal">210</span>
+<span class="normal">211</span>
+<span class="normal">212</span>
+<span class="normal">213</span>
+<span class="normal">214</span>
+<span class="normal">215</span>
+<span class="normal">216</span>
+<span class="normal">217</span>
+<span class="normal">218</span>
+<span class="normal">219</span>
+<span class="normal">220</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">process_single_file</span><span class="p">(</span>
     <span class="n">input_file</span><span class="p">,</span>
     <span class="n">voice</span><span class="p">,</span>
     <span class="n">speed</span><span class="p">,</span>
@@ -1475,6 +1557,8 @@ Each file's chapters are processed in parallel; files are queued one after anoth
         <span class="k">if</span> <span class="n">engine</span> <span class="o">==</span> <span class="s2">"breeze"</span><span class="p">:</span>
             <span class="c1"># One shared runtime (3B params) across all chapters, serially;</span>
             <span class="c1"># if the caller didn't provide one, load it now (per file).</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">BreezeTTSProcessor</span>
+
             <span class="n">processor</span> <span class="o">=</span> <span class="n">breeze_processor</span> <span class="ow">or</span> <span class="n">BreezeTTSProcessor</span><span class="p">(</span><span class="o">**</span><span class="p">(</span><span class="n">breeze_opts</span> <span class="ow">or</span> <span class="p">{}))</span>
             <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">chapters</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
@@ -1557,6 +1641,8 @@ Each file's chapters are processed in parallel; files are queued one after anoth
 
 
 
+
+
                 
               </article>
             </div>
@@ -1575,8 +1661,8 @@ Each file's chapters are processed in parallel; files are queued one after anoth
   
   
     Made with
-    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
-      Material for MkDocs
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
     </a>
   
 </div>
@@ -1586,7 +1672,7 @@ Each file's chapters are processed in parallel; files are queued one after anoth
 </footer>
       
     </div>
-    <div class="md-dialog" data-md-component="dialog">
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
@@ -1594,10 +1680,14 @@ Each file's chapters are processed in parallel; files are queued one after anoth
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.copy"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.67a597eb.min.js"></script>
       
     
   </body>

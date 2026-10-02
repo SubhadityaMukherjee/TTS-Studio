@@ -1,3 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <url>
+        <loc>https://subhadityamukherjee.github.io/TTS-Studio/</loc>
+      </url>
+      <url>
+        <loc>https://subhadityamukherjee.github.io/TTS-Studio/engines/</loc>
+      </url>
+      <url>
+        <loc>https://subhadityamukherjee.github.io/TTS-Studio/tts_studio/breeze_fast/</loc>
+      </url>
+      <url>
+        <loc>https://subhadityamukherjee.github.io/TTS-Studio/tts_studio/cli/</loc>
+      </url>
+      <url>
+        <loc>https://subhadityamukherjee.github.io/TTS-Studio/tts_studio/parsers/</loc>
+      </url>
+      <url>
+        <loc>https://subhadityamukherjee.github.io/TTS-Studio/tts_studio/processor/</loc>
+      </url>
+      <url>
+        <loc>https://subhadityamukherjee.github.io/TTS-Studio/tts_studio/utils/</loc>
+      </url>
 </urlset>
