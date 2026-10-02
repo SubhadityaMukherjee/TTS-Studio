@@ -10,13 +10,16 @@ import soundfile as sf
 from tqdm import tqdm
 
 from .parsers import EpubParser, PdfParser
-from .processor import BreezeTTSProcessor, EdgeTTSProcessor, TTSProcessor
 from .utils import ChunkCache
+
+# Engine processors are imported lazily inside the functions that need them:
+# the heavy backends (torch/kokoro, mlx/breeze) are optional extras and must
+# not be required to import the CLI (e.g. for tests or --help).
 
 
 @click.group()
 def main():
-    """Kokoro TTS: A high-quality text-to-speech CLI."""
+    """TTS Studio: a multi-engine text-to-speech CLI (kokoro, edge, breeze)."""
     pass
 
 
@@ -31,7 +34,6 @@ def process_chapter(
     breeze_processor=None,
 ):
     """Run in a separate process for TTS conversion."""
-
     # --- Safe filename formatting ---
     safe_title = chapter.get("title", f"Chapter_{chapter['order']:02d}")
     if abstract_only and "abstract" not in safe_title.lower():
@@ -52,6 +54,8 @@ def process_chapter(
         return out_file, "skipped"
 
     if engine == "edge":
+        from .processor import EdgeTTSProcessor
+
         processor = EdgeTTSProcessor(voice=voice)
         processor.save(chapter["content"], out_file, voice=voice, speed=speed)
     elif engine == "breeze":
@@ -59,9 +63,13 @@ def process_chapter(
         # process; callers pass a shared processor and run chapters serially.
         # save() itself resumes: finished chunks are cached under
         # <out_file>.chunks/ and the final write is atomic.
+        from .processor import BreezeTTSProcessor
+
         processor = breeze_processor or BreezeTTSProcessor()
         processor.save(chapter["content"], out_file, speed=speed)
     else:
+        from .processor import TTSProcessor
+
         processor = TTSProcessor(lang_code=lang)
 
         # Process with progress-aware streaming; cache finished sentences
@@ -151,6 +159,8 @@ def process_single_file(
         if engine == "breeze":
             # One shared runtime (3B params) across all chapters, serially;
             # if the caller didn't provide one, load it now (per file).
+            from .processor import BreezeTTSProcessor
+
             processor = breeze_processor or BreezeTTSProcessor(**(breeze_opts or {}))
             for ch in chapters:
                 try:
@@ -355,6 +365,8 @@ def convert(
         )
         # Load the runtime once for the whole queue so the auto-created
         # voice anchor carries across every file and chapter.
+        from .processor import BreezeTTSProcessor
+
         breeze_processor = BreezeTTSProcessor(**breeze_opts)
     else:
         breeze_processor = None

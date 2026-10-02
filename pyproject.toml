@@ -5,40 +5,54 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tts-studio"
 version = "1.0.0"
-description = "A modular high-quality TTS CLI using the Kokoro API"
+description = "A modular multi-engine text-to-speech CLI (kokoro, edge-tts, Breeze TTS 2)"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-  "kokoro",
-  "soundfile",
-  "sounddevice",
-  "torch",
   "click",
   "numpy",
+  "soundfile",
+  "tqdm>=4.67.3",
   "EbookLib",
   "beautifulsoup4",
   "pymupdf4llm",
   "pymupdf",
-  "nltk>=3.9.3",
   "pymupdf-layout>=1.27.1",
+  "nltk>=3.9.3",
   "pydub>=0.25.1",
-  "mkdocstrings-python>=2.0.3",
-  "black>=26.1.0",
-  "mkdocs-awesome-pages-plugin>=2.10.1",
-  "mkdocs-material>=9.7.4",
-  "isort>=8.0.1",
   "edge-tts>=7.2.8",
+]
+
+[project.optional-dependencies]
+kokoro = [
+  "kokoro",
+  "torch",
   "en-core-web-sm",
-  "tqdm>=4.67.3",
-  "mlx-audio==0.5.1",
+]
+breeze = [
   "mlx==0.32.2",
+  "mlx-audio==0.5.1",
   "mlx-whisper>=0.4.3",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.0",
+  "black>=26.1.0",
+  "isort>=8.0.1",
+]
+docs = [
+  "zensical>=0.0.67",
+  "mkdocstrings-python>=2.0.3",
 ]
 
 [tool.uv.sources]
 # Pre-install the spacy model misaki needs; without it misaki shells out to
 # `python -m pip` at runtime, which fails in pip-less uv venvs.
 en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [project.scripts]
 tts-studio = "tts_studio.cli:main"

@@ -9,7 +9,6 @@ from pathlib import Path
 
 import edge_tts
 import nltk
-import sounddevice as sd
 import soundfile as sf
 import torch
 from kokoro import KPipeline

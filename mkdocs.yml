@@ -1,4 +1,19 @@
 site_name: TTS Studio
+site_description: A modular multi-engine text-to-speech CLI (kokoro, edge-tts, Breeze TTS 2)
+site_url: https://subhadityamukherjee.github.io/TTS-Studio/
+repo_url: https://github.com/SubhadityaMukherjee/TTS-Studio
+repo_name: SubhadityaMukherjee/TTS-Studio
+
+nav:
+  - Home: index.md
+  - Engines: engines.md
+  - API Reference:
+      - CLI: tts_studio/cli.md
+      - Parsers: tts_studio/parsers.md
+      - Processor: tts_studio/processor.md
+      - Utils: tts_studio/utils.md
+      - Breeze backend: tts_studio/breeze_fast.md
+
 theme:
   name: material
   features:
@@ -24,7 +39,6 @@ theme:
 
 markdown_extensions:
   - admonition
-  - codehilite
   - attr_list
   - pymdownx.details
   - pymdownx.superfences
@@ -33,17 +47,14 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - toc:
       permalink: true
+
 plugins:
   - search
-  - awesome-pages
-  # - mknotebooks:
-  # execute: false
   - mkdocstrings:
       default_handler: python
       handlers:
         python:
           paths: [.]
-          load_external_modules: true
           options:
             docstring_section_style: table
             show_docstring_functions: true
