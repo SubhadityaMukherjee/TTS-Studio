@@ -106,6 +106,8 @@ uv run tts-studio convert INPUT_FILE... [OUTPUT_FILE] [OPTIONS]
 - `--split-output`: Directory to save individual chapter files instead of one file
 - `--abstract-only`: For PDF files, if you just want the audio files for the Abstract, set this flag
 
+**Automatic text handling (all engines):** URLs are dropped before synthesis, and front/back-matter chapters are skipped without being narrated (cover, logo, ad cards, (half)title pages, table of contents, colophon, copyright, index, appendixes) — each skip is announced in the output.
+
 **Breeze-only options:**
 
 - `--instruction`: natural-language voice description, **or** a path to a sample audio file whose voice gets cloned (transcript auto-transcribed)

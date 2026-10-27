@@ -29,12 +29,25 @@ def _ends_sentence(sentence):
 
 
 def normalize_text(text, strip_markdown=False):
-    """Normalize text for TTS: rejoin hyphen-broken words and clean spacing.
+    """Normalize text for TTS: rejoin hyphen-broken words, drop URLs, and
+    clean spacing.
 
-    Fixes the two classic causes of weird mid-word breaks:
+    Fixes the three classic causes of weird mid-word breaks:
     - EPUB words split across inline tags ("well- known" -> "well-known")
     - PDF line-wrap hyphenation ("inter-\\nesting" -> "interesting")
+    - URLs, which no listener wants read aloud
     """
+    if strip_markdown:
+        # pymupdf4llm emits markdown that the TTS would read aloud
+        text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)  # links
+        text = re.sub(r"(\*\*|__)(.+?)\1", r"\2", text)  # bold
+        text = re.sub(r"(\*|_)(.+?)\1", r"\2", text)  # italic
+        text = re.sub(r"`([^`]*)`", r"\1", text)  # code
+
+    # URLs are never worth narrating ("available at https://x.co/y, 2024");
+    # runs after the markdown strip so "[text](http://url)" keeps its text
+    text = re.sub(r"(?:https?://|www\.)\S+", " ", text)
+
     # Soft hyphens are invisible on screen but wreck pronunciation
     text = text.replace("\u00ad", "")
 
@@ -47,13 +60,6 @@ def normalize_text(text, strip_markdown=False):
 
     # Rejoin words split across markup boundaries ("well- known" -> "well-known")
     text = re.sub(r"(\w)- (\w)", r"\1-\2", text)
-
-    if strip_markdown:
-        # pymupdf4llm emits markdown that the TTS would read aloud
-        text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)  # links
-        text = re.sub(r"(\*\*|__)(.+?)\1", r"\2", text)  # bold
-        text = re.sub(r"(\*|_)(.+?)\1", r"\2", text)  # italic
-        text = re.sub(r"`([^`]*)`", r"\1", text)  # code
 
     # Collapse whitespace but keep paragraph breaks
     text = re.sub(r"[ \t]+", " ", text)
@@ -248,6 +254,26 @@ def chunk_paragraphs(text, max_chars=1000, max_sentence_chars=250):
         if current:
             chunks.append({"text": " ".join(current), "ends_paragraph": True})
     return chunks
+
+
+# Front/back matter that no audiobook listener wants narrated. Matched
+# against a normalized chapter title (lowercase, punctuation as spaces),
+# anchored at the START so a chapter genuinely titled "The Cover Up" or
+# "Introduction to Statistics" is kept.
+_SKIP_TITLE_RE = re.compile(
+    r"^(?:\d+\s*)?"
+    r"(cover|logo|adcard\w*|advert\w*|halftitle\w*|titlepage\w*|title ?page\w*|"
+    r"title\d*|toc|table of contents|contents|colophon|copyright|index|"
+    r"appendi\w*)\b"
+)
+
+
+def is_skippable_chapter(title):
+    """True for front/back-matter chapters that should not be narrated:
+    cover pages, logos, ad cards, (half)title pages, the table of
+    contents, colophon, copyright page, indexes, and appendixes."""
+    normalized = re.sub(r"[^a-z0-9]+", " ", str(title).lower()).strip()
+    return bool(_SKIP_TITLE_RE.match(normalized))
 
 
 def spinning_wheel(message="Processing...", progress=None, stop_event=None):

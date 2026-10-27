@@ -10,7 +10,7 @@ import soundfile as sf
 from tqdm import tqdm
 
 from .parsers import EpubParser, PdfParser
-from .utils import ChunkCache
+from .utils import ChunkCache, is_skippable_chapter
 
 # Engine processors are imported lazily inside the functions that need them:
 # the heavy backends (torch/kokoro, mlx/breeze) are optional extras and must
@@ -227,6 +227,20 @@ def process_single_file(
     chapters = load_chapters(input_file)
     file_stem = Path(input_file).stem
 
+    # Drop empty chapters and front/back matter (cover, ToC, index, ...) -
+    # no listener wants those narrated.
+    kept = []
+    for ch in chapters:
+        if not ch["content"].strip():
+            continue
+        if is_skippable_chapter(ch["title"]):
+            click.secho(
+                f"  ⏭  Skipping {ch['title']!r} (front/back matter)", fg="yellow"
+            )
+            continue
+        kept.append(ch)
+    chapters = kept
+
     # If multiple files, use a subdirectory per file to avoid collisions
     if total_files > 1:
         file_out_dir = os.path.join(split_output, re.sub(r"[^\w\d_-]+", "_", file_stem))
@@ -235,7 +249,6 @@ def process_single_file(
 
     os.makedirs(file_out_dir, exist_ok=True)
 
-    chapters = [ch for ch in chapters if ch["content"].strip()]
     max_workers = min(4, multiprocessing.cpu_count() // 2)
 
     click.secho(

@@ -5,6 +5,7 @@ from tts_studio.utils import (
     ChunkCache,
     chunk_paragraphs,
     chunk_text,
+    is_skippable_chapter,
     normalize_pauses,
     normalize_text,
     speakable_text,
@@ -263,4 +264,60 @@ class TestChunkParagraphs:
         chunks = chunk_paragraphs(para, max_chars=200)
         # 30 sentences x 15 chars: 13 + 13 + 4 sentences per chunk
         assert [c["ends_paragraph"] for c in chunks] == [False, False, True]
+
+
+class TestUrlStripping:
+    def test_https_url_dropped(self):
+        assert normalize_text("see https://example.com/a?b=1 for more") == (
+            "see for more"
+        )
+
+    def test_www_url_dropped(self):
+        assert normalize_text("visit www.foo.org/bar, then rest.") == (
+            "visit then rest."
+        )
+
+    def test_plain_words_untouched(self):
+        assert normalize_text("a well-known fact") == "a well-known fact"
+
+
+class TestIsSkippableChapter:
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "cover xhtml",
+            "01_cover",
+            "logo xhtml",
+            "adcard xhtml",
+            "halftitle1 xhtml",
+            "title xhtml",
+            "titlepage",
+            "toc",
+            "table of contents",
+            "contents",
+            "colophon",
+            "copyright",
+            "index",
+            "appendix a",
+            "appendices",
+            "12 title",
+        ],
+    )
+    def test_front_back_matter_skipped(self, title):
+        assert is_skippable_chapter(title)
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "introduction.xhtml",
+            "introduction",
+            "chapter 1",
+            "preface",
+            "the cover up",
+            "indexical gestures",  # not a back-of-book index
+            "notes",
+        ],
+    )
+    def test_real_chapters_kept(self, title):
+        assert not is_skippable_chapter(title)
 
