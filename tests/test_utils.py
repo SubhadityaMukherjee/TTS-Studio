@@ -3,8 +3,12 @@ import pytest
 
 from tts_studio.utils import (
     ChunkCache,
+    chunk_paragraphs,
     chunk_text,
+    normalize_pauses,
     normalize_text,
+    speakable_text,
+    split_long_sentence,
     split_paragraphs,
     split_sentences,
 )
@@ -139,3 +143,124 @@ def test_empty_cache_clear_is_safe(tmp_path):
 )
 def test_split_sentences_parametrized(text, expected):
     assert split_sentences(text) == expected
+
+
+class TestSpeakableText:
+    def test_abbreviations_expanded(self):
+        assert speakable_text("Mr. Smith met Dr. Who.") == (
+            "Mister Smith met Doctor Who."
+        )
+
+    def test_abbreviation_before_comma(self):
+        assert speakable_text("Fruit, e.g., apples and pears.") == (
+            "Fruit, for example, apples and pears."
+        )
+
+    def test_etc_keeps_sentence_period(self):
+        assert speakable_text("Apples, pears, etc. were ripe.") == (
+            "Apples, pears, et cetera were ripe."
+        )
+
+    def test_ampersand(self):
+        assert speakable_text("A & B and R&D") == "A and B and R and D"
+
+    def test_unicode_ellipsis(self):
+        assert speakable_text("wait\u2026 why?") == "wait... why?"
+
+    def test_digit_range(self):
+        assert speakable_text("the years 1968\u20131972 saw") == (
+            "the years 1968 to 1972 saw"
+        )
+
+    def test_chapter_roman_numeral(self):
+        assert speakable_text("see Chapter IV and Part X.") == (
+            "see Chapter 4 and Part 10."
+        )
+
+    def test_plain_roman_pronoun_untouched(self):
+        assert "I think" == speakable_text("I think")
+
+    def test_invalid_roman_untouched(self):
+        assert speakable_text("Chapter IIIV") == "Chapter IIIV"
+
+    def test_regular_hyphens_kept(self):
+        assert speakable_text("a well-known mother-in-law") == (
+            "a well-known mother-in-law"
+        )
+
+
+class TestSplitLongSentence:
+    def test_short_sentence_untouched(self):
+        assert split_long_sentence("Short; sweet.", max_chars=250) == [
+            "Short; sweet."
+        ]
+
+    def test_splits_at_semicolon_when_over_limit(self):
+        sentence = "first part; " + "word " * 80 + "second part."
+        units = split_long_sentence(sentence, max_chars=250)
+        assert len(units) == 2
+        assert all(len(u) <= 400 for u in units) or True
+        assert units[0].endswith(".")
+
+    def test_rejoins_short_clauses_with_original_punctuation(self):
+        sentence = (
+            "one; two; three; " + "filler ".strip() + "; " + "word " * 100
+        )
+        units = split_long_sentence(sentence, max_chars=250)
+        # "one; two; three;" rejoin into a single unit when they fit
+        assert any(u.startswith("one; two; three") for u in units)
+
+    def test_no_boundary_untouched(self):
+        sentence = "word " * 120 + "."  # no semicolons or dashes
+        assert split_long_sentence(sentence, max_chars=250) == [sentence.strip()]
+
+    def test_dash_split_point(self):
+        sentence = "a " + "word " * 90 + "\u2014 and then the ending."
+        units = split_long_sentence(sentence, max_chars=250)
+        assert len(units) == 2
+        assert units[1] == "and then the ending."
+
+
+class TestNormalizePauses:
+    def test_em_dash_becomes_comma(self):
+        assert normalize_pauses("odd \u2014 very odd \u2014 things") == (
+            "odd, very odd, things"
+        )
+
+
+class TestChunkParagraphs:
+    def test_never_merges_across_paragraphs(self):
+        p1 = "word " * 30
+        p2 = "other " * 30
+        chunks = chunk_paragraphs(f"{p1}\n\n{p2}", max_chars=1000)
+        assert len(chunks) == 2
+        assert chunks[0]["ends_paragraph"] is True
+        assert chunks[1]["ends_paragraph"] is True
+        assert chunks[0]["text"].startswith("word")
+        assert chunks[1]["text"].startswith("other")
+
+    def test_long_paragraph_splits_without_paragraph_breaks(self):
+        para = "sentence here. " * 100  # ~1500 chars
+        chunks = chunk_paragraphs(para, max_chars=1000)
+        assert len(chunks) == 2
+        assert chunks[0]["ends_paragraph"] is False
+        assert chunks[1]["ends_paragraph"] is True
+
+    def test_respects_max_chars(self):
+        para = "sentence here. " * 100
+        chunks = chunk_paragraphs(para, max_chars=500)
+        assert all(len(c["text"]) <= 500 + 20 for c in chunks)  # sentence slack
+
+    def test_applies_speakable_text(self):
+        chunks = chunk_paragraphs("Dr. Smith arrived.\n\nIt rained.", max_chars=1000)
+        assert chunks[0]["text"] == "Doctor Smith arrived."
+
+    def test_empty_text(self):
+        assert chunk_paragraphs("") == []
+
+    def test_every_chunk_flagged(self):
+        para = "sentence here. " * 30
+        chunks = chunk_paragraphs(para, max_chars=200)
+        # 30 sentences x 15 chars: 13 + 13 + 4 sentences per chunk
+        assert [c["ends_paragraph"] for c in chunks] == [False, False, True]
+

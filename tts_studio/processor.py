@@ -15,7 +15,13 @@ from kokoro import KPipeline
 from tqdm import tqdm
 
 from .breeze_fast import FastDepth
-from .utils import ChunkCache, chunk_text, split_paragraphs, split_sentences
+from .utils import (
+    ChunkCache,
+    chunk_paragraphs,
+    chunk_text,
+    split_paragraphs,
+    split_sentences,
+)
 
 nltk.download("punkt", quiet=True)
 nltk.download("punkt_tab", quiet=True)
@@ -375,8 +381,9 @@ class BreezeTTSProcessor:
     """
 
     DEFAULT_MODEL = "mlx-community/Breeze-TTS-2-mlx-4bit"
-    DEFAULT_CHUNK_SIZE = 600
+    DEFAULT_CHUNK_SIZE = 1000
     CHUNK_PAUSE = 0.25
+    PARAGRAPH_PAUSE = 0.7
     SILENCE_RMS = 0.02
     SILENCE_STOP_SECONDS = 4.0
     ALL_SILENT_STOP_SECONDS = 10.0
@@ -520,17 +527,24 @@ class BreezeTTSProcessor:
 
         self._ensure_anchor()
 
-        chunks = chunk_text(
-            text, initial_chunk_size=chunk_size or self.DEFAULT_CHUNK_SIZE
+        chunks = chunk_paragraphs(
+            text, max_chars=chunk_size or self.DEFAULT_CHUNK_SIZE
         )
         show_progress = len(chunks) > 1
         first = True
-        for index, text_chunk in enumerate(chunks, start=1):
-            if not first and self.CHUNK_PAUSE > 0:
-                yield "", np.zeros(
-                    int(self.sample_rate * self.CHUNK_PAUSE), dtype=np.float32
+        for index, chunk in enumerate(chunks, start=1):
+            if not first:
+                pause = (
+                    self.PARAGRAPH_PAUSE
+                    if chunks[index - 2]["ends_paragraph"]
+                    else self.CHUNK_PAUSE
                 )
+                if pause > 0:
+                    yield "", np.zeros(
+                        int(self.sample_rate * pause), dtype=np.float32
+                    )
             first = False
+            text_chunk = chunk["text"]
             audio = cache.get(index - 1, text_chunk) if cache else None
             if audio is not None:
                 if show_progress:
@@ -752,8 +766,8 @@ class BreezeTTSProcessor:
 
         import numpy as np
 
-        chunks = chunk_text(
-            text, initial_chunk_size=chunk_size or self.DEFAULT_CHUNK_SIZE
+        chunks = chunk_paragraphs(
+            text, max_chars=chunk_size or self.DEFAULT_CHUNK_SIZE
         )
 
         ref_audio, ref_text = self.ref_audio, self.ref_text
@@ -781,12 +795,12 @@ class BreezeTTSProcessor:
         audios = [None] * len(chunks)
         todo = []
         for i, chunk in enumerate(chunks):
-            hit = cache.get(i, chunk)
+            hit = cache.get(i, chunk["text"])
             if hit is not None:
                 audios[i] = hit
                 tqdm.write(f"    breeze: chunk {i + 1}/{len(chunks)} resumed from cache")
             else:
-                todo.append((i, chunk))
+                todo.append((i, chunk["text"]))
 
         if todo:
             pool = pool or self._ensure_pool()
@@ -799,7 +813,7 @@ class BreezeTTSProcessor:
                 if self.sample_rate is None:
                     self.sample_rate = sample_rate
                 audios[index] = audio
-                cache.put(index, chunks[index], audio)
+                cache.put(index, chunks[index]["text"], audio)
                 tqdm.write(
                     f"    breeze: chunk {index + 1}/{len(chunks)} done "
                     f"({audio.size / sample_rate:.1f}s audio)"
@@ -813,10 +827,16 @@ class BreezeTTSProcessor:
             for index, audio in enumerate(audios):
                 if audio is not None and audio.size:
                     f.write(audio)
-                    if index < len(audios) - 1 and self.CHUNK_PAUSE > 0:
-                        f.write(
-                            np.zeros(int(rate * self.CHUNK_PAUSE), dtype=np.float32)
-                        )
+                if index < len(audios) - 1:
+                    # a real pause between paragraphs, a short beat between
+                    # chunks inside one paragraph
+                    pause = (
+                        self.PARAGRAPH_PAUSE
+                        if chunks[index]["ends_paragraph"]
+                        else self.CHUNK_PAUSE
+                    )
+                    if pause > 0:
+                        f.write(np.zeros(int(rate * pause), dtype=np.float32))
         os.replace(part_path, output_path)
         cache.clear()
 

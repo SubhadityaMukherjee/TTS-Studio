@@ -91,6 +91,165 @@ def split_sentences(paragraph):
     return sentences
 
 
+# --- speakable-text normalization (rule-based, applied before synthesis) ---#
+
+_ABBREV_EXPANSIONS = {
+    "Mr.": "Mister",
+    "Mrs.": "Misses",
+    "Ms.": "Miss",
+    "Dr.": "Doctor",
+    "Prof.": "Professor",
+    "Jr.": "Junior",
+    "Sr.": "Senior",
+    "etc.": "et cetera",
+    "vs.": "versus",
+    "e.g.": "for example",
+    "i.e.": "that is",
+}
+
+_ROMAN_KEYS = (
+    "chapter",
+    "section",
+    "part",
+    "book",
+    "volume",
+    "act",
+    "scene",
+)
+_ROMAN_RE = re.compile(
+    r"\b((" + "|".join(_ROMAN_KEYS) + r")\s+)([IVXLCDM]+)\b", re.IGNORECASE
+)
+_ROMAN_VALUES = {
+    "I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000,
+}
+_ROMAN_INVALID = re.compile(r"(IIII|VV|XXXX|LL|CCCC|DD)")
+
+
+def _roman_to_int(text):
+    """Value of a well-formed roman numeral (1-3999), else None."""
+    s = text.upper()
+    if _ROMAN_INVALID.search(s):
+        return None
+    total = 0
+    values = [_ROMAN_VALUES[c] for c in s]
+    for current, nxt in zip(values, values[1:]):
+        total += -current if current < nxt else current
+    if values:
+        total += values[-1]
+    # reject non-canonical forms like "IL" by round-tripping
+    remainder = total
+    canonical = ""
+    for numeral, value in (
+        ("M", 1000), ("CM", 900), ("D", 500), ("CD", 400), ("C", 100),
+        ("XC", 90), ("L", 50), ("XL", 40), ("X", 10), ("IX", 9),
+        ("V", 5), ("IV", 4), ("I", 1),
+    ):
+        while remainder >= value:
+            canonical += numeral
+            remainder -= value
+    return total if canonical == s else None
+
+
+def speakable_text(text):
+    """Rewrite text into its spoken form: expand abbreviations, number
+    ranges, chapter numerals, and symbols that TTS models read literally
+    or with weird stress. Conservative on purpose - only unambiguous,
+    high-confidence rules."""
+    for abbrev, spoken in _ABBREV_EXPANSIONS.items():
+        # keep any trailing punctuation (comma/semicolon/colon) - only the
+        # abbreviation itself is replaced
+        pattern = r"\b" + re.escape(abbrev) + r"(?=[\s,;:\"'(\[]|$)"
+        text = re.sub(pattern, spoken, text)
+    # "&" is read "and" ("R&D" -> "R and D", "A & B" -> "A and B")
+    text = re.sub(r"\s*&\s*", " and ", text)
+    # unicode ellipsis -> the ASCII form models know
+    text = text.replace("\u2026", "...")
+    # number ranges: "1968-1972" / "2001-2003" -> "1968 to 1972"
+    text = re.sub(r"(\d)\s*[\u2013\u2014]\s*(\d)", r"\1 to \2", text)
+    # "Chapter IV" / "PART II" -> spoken numbers (only after a heading word)
+    def _expand_roman(match):
+        value = _roman_to_int(match.group(3))
+        if value is None or value > 100:
+            return match.group(0)
+        return f"{match.group(1)}{value}"
+
+    text = _ROMAN_RE.sub(_expand_roman, text)
+    return text
+
+
+# Strong clause boundaries worth a real breathing point when a sentence
+# runs very long: semicolons and em/en dashes, spaced or not (NOT commas,
+# colons, or the ASCII hyphen).
+_CLAUSE_SEP_RE = re.compile(r"\s*;\s*|\s*[\u2013\u2014]\s*")
+
+
+def split_long_sentence(sentence, max_chars=250):
+    """Break an over-long sentence at strong clause boundaries (semicolons,
+    em-dashes) so each generation unit ends at a natural breathing point.
+
+    Pieces are re-joined with their original punctuation while they still
+    fit; only pieces that must stand alone get a period appended. Sentences
+    without usable boundaries are returned untouched.
+    """
+    if len(sentence) <= max_chars:
+        return [sentence]
+    pieces = [p.strip() for p in _CLAUSE_SEP_RE.split(sentence) if p.strip()]
+    if len(pieces) < 2:
+        return [sentence]
+    seps = [s.strip() for s in _CLAUSE_SEP_RE.findall(sentence)]
+    units, buf = [], pieces[0]
+    for piece, sep in zip(pieces[1:], seps):
+        if len(buf) + len(sep) + 1 + len(piece) <= max_chars:
+            buf = f"{buf}{sep} {piece}"
+        else:
+            if not buf.endswith((";", ",", ":", ".", "!", "?")):
+                buf += "."
+            units.append(buf)
+            buf = piece
+    if not buf.endswith((".", "!", "?")):
+        buf += "."
+    units.append(buf)
+    return units
+
+
+def normalize_pauses(text):
+    """Replace remaining prose dashes with commas so the model pauses
+    naturally instead of stumbling on an em-dash. Run AFTER
+    split_long_sentence, which uses dashes as split points."""
+    return re.sub(r"\s*[\u2013\u2014]+\s*", ", ", text)
+
+
+def chunk_paragraphs(text, max_chars=1000, max_sentence_chars=250):
+    """Split text into TTS-sized chunks that respect paragraph structure.
+
+    Returns a list of ``{"text": ..., "ends_paragraph": bool}`` dicts.
+    Unlike :func:`chunk_text`, sentences are never packed across paragraph
+    boundaries, and each chunk carries a flag marking the final chunk of a
+    paragraph so the caller can insert a real pause between paragraphs.
+    """
+    text = normalize_text(text)
+    chunks = []
+    for para in re.split(r"\n{2,}", text):
+        para = re.sub(r"\s+", " ", para).strip()
+        if not para:
+            continue
+        para = speakable_text(para)
+        units = []
+        for sent in split_sentences(para):
+            units.extend(split_long_sentence(sent, max_chars=max_sentence_chars))
+        units = [normalize_pauses(u) for u in units if u.strip()]
+        current, size = [], 0
+        for unit in units:
+            if current and size + 1 + len(unit) > max_chars:
+                chunks.append({"text": " ".join(current), "ends_paragraph": False})
+                current, size = [], 0
+            current.append(unit)
+            size = size + (1 if len(current) > 1 else 0) + len(unit)
+        if current:
+            chunks.append({"text": " ".join(current), "ends_paragraph": True})
+    return chunks
+
+
 def spinning_wheel(message="Processing...", progress=None, stop_event=None):
     spinner = itertools.cycle(["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
     while not stop_event.is_set():

@@ -379,8 +379,9 @@ def process_single_file(
     "--breeze-depth-mode",
     default="cached",
     type=click.Choice(["cached", "compiled"]),
-    help="Breeze only: depth-decoder mode (compiled may be faster, with a "
-    "one-time compile warm-up)",
+    help="Breeze only: depth-decoder mode. 'cached' (default) is fastest "
+    "in practice (~0.9x real-time warm); 'compiled' traces the decoder "
+    "but measured ~3x slower on Apple Silicon",
 )
 def convert(
     input_files,

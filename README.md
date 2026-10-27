@@ -114,7 +114,9 @@ uv run tts-studio convert INPUT_FILE... [OUTPUT_FILE] [OPTIONS]
 - `--breeze-model`: local checkpoint dir or HF repo id (default: `BREEZE_TTS_MODEL` env var or the 4bit MLX build)
 - `--seed`: sampling seed (default: 42)
 - `--breeze-workers`: parallel chunk-generation processes (each loads its own model copy, ~3 GB RAM; default 2)
-- `--breeze-depth-mode`: depth-decoder mode, `cached` or `compiled` (compiled may be faster after a one-time warm-up)
+- `--breeze-depth-mode`: depth-decoder mode, `cached` (default, fastest in practice: ~0.9x real-time warm) or `compiled` (mx.compile-traced; measured ~3x slower on Apple Silicon due to per-frame syncs)
+
+Breeze text handling: text is chunked **per paragraph** (sentences never cross a paragraph boundary), a ~0.7s pause is inserted between paragraphs and a short beat between chunks within one, over-long sentences are split at semicolons/em-dashes, and a rule-based normalizer expands abbreviations (`Mr.` → `Mister`), number ranges (`1968–1972` → spoken), `&`, and chapter numerals (`Chapter IV` → `Chapter 4`) before synthesis.
 
 ### Examples
 
