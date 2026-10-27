@@ -130,7 +130,7 @@ Convert with [Breeze TTS 2](https://huggingface.co/BreezeBlue/Breeze-TTS-2) on A
 uv run tts-studio convert input.txt --engine breeze --instruction "A warm, thoughtful young woman with a calm, reflective delivery" --cfg-scale 4
 ```
 
-Clone a voice from a sample recording — `--instruction` also accepts an audio file path; its transcript is auto-transcribed (or pass `--ref-text` with the exact words):
+Clone a voice from a sample recording — `--instruction` also accepts an audio file path (wav, mp3, flac, m4a, ogg — ffmpeg required for compressed formats); its transcript is auto-transcribed (or pass `--ref-text` with the exact words). Samples longer than 15s are trimmed to their first 15s before cloning (`--max-ref-seconds` to change; `0` keeps them whole):
 
 ```bash
 uv run tts-studio convert input.txt --engine breeze --instruction sample.wav

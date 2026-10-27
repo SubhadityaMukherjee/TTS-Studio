@@ -17,6 +17,97 @@ from .utils import ChunkCache
 # not be required to import the CLI (e.g. for tests or --help).
 
 
+def _audio_duration(path: str) -> float:
+    """Duration of an audio file in seconds, for any format ffmpeg can read.
+
+    soundfile (libsndfile) covers wav/flac/mp3 but not m4a/mp4/aac/ogg/opus,
+    so fall back to ffprobe for those. mlx-audio's decoder uses the ffmpeg
+    binary for the same formats, so requiring it here is no new dependency.
+    """
+    try:
+        return sf.info(path).duration
+    except Exception:
+        import shutil
+        import subprocess
+
+        if not shutil.which("ffprobe"):
+            raise click.ClickException(
+                f"cannot read audio metadata from {path}; ffprobe (ffmpeg) "
+                "is required for this format"
+            )
+        result = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                path,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        try:
+            return float(result.stdout.strip())
+        except ValueError:
+            raise click.ClickException(
+                f"could not read audio metadata from {path}: "
+                f"{result.stderr.strip() or 'unknown error'}"
+            )
+
+
+def _trim_voice_sample(path: str, max_seconds: float) -> str:
+    """Trim a voice sample to its first `max_seconds`, as a temp wav.
+
+    Returns the original path untouched when the sample is short enough.
+    Cloning quality drops sharply beyond ~15s, so long clips are cut to
+    their opening. soundfile handles wav/flac/mp3; anything else (m4a,
+    ogg, ...) goes through the ffmpeg binary, same as _audio_duration.
+    """
+    if max_seconds <= 0 or _audio_duration(path) <= max_seconds:
+        return path
+    import shutil
+    import subprocess
+    import tempfile
+
+    fd, trimmed = tempfile.mkstemp(suffix=".wav", prefix="voice_trim_")
+    os.close(fd)
+    try:
+        info = sf.info(path)
+        data, samplerate = sf.read(path, frames=int(max_seconds * info.samplerate))
+        sf.write(trimmed, data, samplerate, subtype="PCM_16", format="WAV")
+    except Exception:  # not a libsndfile format - decode with ffmpeg
+        if not shutil.which("ffmpeg"):
+            raise click.ClickException(
+                f"cannot trim {path}; ffprobe/ffmpeg is required for this format"
+            )
+        proc = subprocess.run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-y",
+                "-i",
+                path,
+                "-t",
+                str(max_seconds),
+                "-vn",
+                "-c:a",
+                "pcm_s16le",
+                trimmed,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0:
+            raise click.ClickException(
+                f"could not trim {path}: {proc.stderr.strip() or 'ffmpeg failed'}"
+            )
+    return trimmed
+
+
 @click.group()
 def main():
     """TTS Studio: a multi-engine text-to-speech CLI (kokoro, edge, breeze)."""
@@ -244,7 +335,8 @@ def process_single_file(
     "--instruction",
     help="Breeze only: natural-language voice description (e.g. 'A warm, "
     "thoughtful narrator'), OR a path to a sample audio file to clone that "
-    "voice",
+    "voice (wav, mp3, flac, m4a, ogg, ... - ffmpeg required for compressed "
+    "formats; samples longer than 15s are trimmed, see --max-ref-seconds)",
 )
 @click.option(
     "--cfg-scale",
@@ -262,6 +354,13 @@ def process_single_file(
     "--ref-text",
     help="Breeze only: exact transcript of the reference audio "
     "(auto-transcribed with whisper when omitted)",
+)
+@click.option(
+    "--max-ref-seconds",
+    default=15.0,
+    type=float,
+    help="Breeze only: trim voice samples to their first N seconds, since "
+    "cloning works best with 5-15s of clean speech (0 keeps samples whole)",
 )
 @click.option(
     "--breeze-model",
@@ -296,6 +395,7 @@ def convert(
     cfg_scale,
     ref_audio,
     ref_text,
+    max_ref_seconds,
     breeze_model,
     seed,
     breeze_workers,
@@ -317,6 +417,8 @@ def convert(
       tts-studio convert text.txt --engine breeze --instruction "A warm, thoughtful young woman with a calm delivery" --cfg-scale 4
 
       tts-studio convert text.txt --engine breeze --instruction sample.wav
+
+      tts-studio convert text.txt --engine breeze --instruction sample.m4a
     """
     breeze_opts = None
     if engine == "breeze":
@@ -330,6 +432,18 @@ def convert(
                 )
             ref_audio = str(sample)
             instruction = None
+            # Trim before transcribing, so the transcript describes exactly
+            # the audio the model will clone. Long samples degrade cloning,
+            # so by default only their opening is kept.
+            duration = _audio_duration(ref_audio)
+            if max_ref_seconds > 0 and duration > max_ref_seconds:
+                click.secho(
+                    f"✂  Voice sample is {duration:.0f}s long; trimming to "
+                    f"its first {max_ref_seconds:.0f}s (cloning works best "
+                    "with 5-15s; --max-ref-seconds 0 keeps it whole)",
+                    fg="yellow",
+                )
+                ref_audio = _trim_voice_sample(ref_audio, max_ref_seconds)
             if not ref_text:
                 click.secho("🎙  Transcribing voice sample with whisper...", fg="cyan")
                 from .processor import transcribe_sample
@@ -342,13 +456,6 @@ def convert(
                         "pass --ref-text with its exact transcript instead"
                     )
                 click.secho(f"   Transcript: {ref_text!r}", fg="cyan")
-            duration = sf.info(ref_audio).duration
-            if duration > 30:
-                click.secho(
-                    f"⚠  Voice sample is {duration:.0f}s long; cloning works "
-                    "best with 5-15s of clean speech",
-                    fg="yellow",
-                )
         if (ref_audio is None) != (ref_text is None):
             raise click.BadParameter(
                 "--ref-audio and --ref-text must be provided together"
